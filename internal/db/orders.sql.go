@@ -8,15 +8,15 @@ package db
 import (
 	"context"
 
-	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const cancelOrder = `-- name: CancelOrder :exec
 DELETE FROM orders WHERE id = $1
 `
 
-func (q *Queries) CancelOrder(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.ExecContext(ctx, cancelOrder, id)
+func (q *Queries) CancelOrder(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, cancelOrder, id)
 	return err
 }
 
@@ -30,15 +30,15 @@ RETURNING id, price, quantity, side, remaining_quantity, created_at
 `
 
 type CreateOrderParams struct {
-	ID                uuid.UUID `json:"id"`
-	Price             string    `json:"price"`
-	Quantity          int32     `json:"quantity"`
-	Side              OrderSide `json:"side"`
-	RemainingQuantity int32     `json:"remaining_quantity"`
+	ID                pgtype.UUID `json:"id"`
+	Price             int64       `json:"price"`
+	Quantity          int32       `json:"quantity"`
+	Side              OrderSide   `json:"side"`
+	RemainingQuantity int32       `json:"remaining_quantity"`
 }
 
 func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (Order, error) {
-	row := q.db.QueryRowContext(ctx, createOrder,
+	row := q.db.QueryRow(ctx, createOrder,
 		arg.ID,
 		arg.Price,
 		arg.Quantity,
@@ -67,14 +67,14 @@ RETURNING id, buyer_order_id, seller_order_id, execution_price, quantity, execut
 `
 
 type CreateTradeParams struct {
-	BuyerOrderID   uuid.NullUUID `json:"buyer_order_id"`
-	SellerOrderID  uuid.NullUUID `json:"seller_order_id"`
-	ExecutionPrice string        `json:"execution_price"`
-	Quantity       int32         `json:"quantity"`
+	BuyerOrderID   pgtype.UUID `json:"buyer_order_id"`
+	SellerOrderID  pgtype.UUID `json:"seller_order_id"`
+	ExecutionPrice int64       `json:"execution_price"`
+	Quantity       int32       `json:"quantity"`
 }
 
 func (q *Queries) CreateTrade(ctx context.Context, arg CreateTradeParams) (Trade, error) {
-	row := q.db.QueryRowContext(ctx, createTrade,
+	row := q.db.QueryRow(ctx, createTrade,
 		arg.BuyerOrderID,
 		arg.SellerOrderID,
 		arg.ExecutionPrice,
@@ -97,8 +97,8 @@ SELECT id, price, quantity, side, remaining_quantity, created_at FROM orders
 WHERE id = $1 LIMIT 1
 `
 
-func (q *Queries) GetOrder(ctx context.Context, id uuid.UUID) (Order, error) {
-	row := q.db.QueryRowContext(ctx, getOrder, id)
+func (q *Queries) GetOrder(ctx context.Context, id pgtype.UUID) (Order, error) {
+	row := q.db.QueryRow(ctx, getOrder, id)
 	var i Order
 	err := row.Scan(
 		&i.ID,
@@ -118,7 +118,7 @@ LIMIT $1
 `
 
 func (q *Queries) GetRecentTrades(ctx context.Context, limit int32) ([]Trade, error) {
-	rows, err := q.db.QueryContext(ctx, getRecentTrades, limit)
+	rows, err := q.db.Query(ctx, getRecentTrades, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -137,9 +137,6 @@ func (q *Queries) GetRecentTrades(ctx context.Context, limit int32) ([]Trade, er
 			return nil, err
 		}
 		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -162,7 +159,7 @@ type ListActiveOrdersBySideParams struct {
 }
 
 func (q *Queries) ListActiveOrdersBySide(ctx context.Context, arg ListActiveOrdersBySideParams) ([]Order, error) {
-	rows, err := q.db.QueryContext(ctx, listActiveOrdersBySide, arg.Side, arg.Column2)
+	rows, err := q.db.Query(ctx, listActiveOrdersBySide, arg.Side, arg.Column2)
 	if err != nil {
 		return nil, err
 	}
@@ -182,9 +179,6 @@ func (q *Queries) ListActiveOrdersBySide(ctx context.Context, arg ListActiveOrde
 		}
 		items = append(items, i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -199,12 +193,12 @@ RETURNING id, price, quantity, side, remaining_quantity, created_at
 `
 
 type UpdateOrderQuantityParams struct {
-	ID                uuid.UUID `json:"id"`
-	RemainingQuantity int32     `json:"remaining_quantity"`
+	ID                pgtype.UUID `json:"id"`
+	RemainingQuantity int32       `json:"remaining_quantity"`
 }
 
 func (q *Queries) UpdateOrderQuantity(ctx context.Context, arg UpdateOrderQuantityParams) (Order, error) {
-	row := q.db.QueryRowContext(ctx, updateOrderQuantity, arg.ID, arg.RemainingQuantity)
+	row := q.db.QueryRow(ctx, updateOrderQuantity, arg.ID, arg.RemainingQuantity)
 	var i Order
 	err := row.Scan(
 		&i.ID,

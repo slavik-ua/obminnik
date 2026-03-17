@@ -7,7 +7,7 @@ import (
 
 type Store struct {
 	*Queries
-	db       *pgxpool.Pool
+	db *pgxpool.Pool
 }
 
 func NewStore(db *pgxpool.Pool) *Store {

@@ -1,8 +1,20 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"log"
+	"net/http"
+	"os"
 	"sort"
+	"time"
+
+	"github.com/joho/godotenv"
+
+	"simple-orderbook/internal/adapters/repository"
+	"simple-orderbook/internal/api"
+	"simple-orderbook/internal/database"
+	"simple-orderbook/internal/db"
 )
 
 type Order struct {
@@ -61,11 +73,49 @@ func (ob *OrderBook) Match() {
 }
 
 func main() {
-	ob := NewOrderBook()
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Could not load .env file")
+	}
 
-	ob.AddOrder(Order{"ID1", 140, 20, "BUY"})
-	ob.AddOrder(Order{"ID2", 160, 20, "BUY"})
-	ob.AddOrder(Order{"ID3", 120, 20, "SELL"})
+	dbURL := os.Getenv("DB_URL")
+	if dbURL == "" {
+		log.Fatal("DB_URL is not set in .env file")
+	}
 
-	ob.Match()
+	pool, err := database.NewPostgresPool(context.Background(), dbURL)
+	if err != nil {
+		log.Fatalf("Could create database pool: %s, %v", dbURL, err)
+	}
+
+	store := db.NewStore(pool)
+	repo := repository.NewPostgresOrderRepository(store)
+	handler := api.NewOrderHandler(repo)
+
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/order", handler.CreateOrder)
+
+	server := &http.Server{
+		Addr:    ":8000",
+		Handler: mux,
+
+		ReadTimeout:       5 * time.Second,
+		ReadHeaderTimeout: 2 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
+
+	log.Println("Started listening at :8000")
+	if err := server.ListenAndServe(); err != nil {
+		panic(err)
+	}
+
+	// ob := NewOrderBook()
+
+	// ob.AddOrder(Order{"ID1", 140, 20, "BUY"})
+	// ob.AddOrder(Order{"ID2", 160, 20, "BUY"})
+	// ob.AddOrder(Order{"ID3", 120, 20, "SELL"})
+
+	// ob.Match()
 }

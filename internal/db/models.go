@@ -5,11 +5,10 @@
 package db
 
 import (
-	"database/sql"
 	"database/sql/driver"
 	"fmt"
 
-	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type OrderSide string
@@ -55,19 +54,19 @@ func (ns NullOrderSide) Value() (driver.Value, error) {
 }
 
 type Order struct {
-	ID                uuid.UUID    `json:"id"`
-	Price             string       `json:"price"`
-	Quantity          int32        `json:"quantity"`
-	Side              OrderSide    `json:"side"`
-	RemainingQuantity int32        `json:"remaining_quantity"`
-	CreatedAt         sql.NullTime `json:"created_at"`
+	ID                pgtype.UUID      `json:"id"`
+	Price             int64            `json:"price"`
+	Quantity          int32            `json:"quantity"`
+	Side              OrderSide        `json:"side"`
+	RemainingQuantity int32            `json:"remaining_quantity"`
+	CreatedAt         pgtype.Timestamp `json:"created_at"`
 }
 
 type Trade struct {
-	ID             int32         `json:"id"`
-	BuyerOrderID   uuid.NullUUID `json:"buyer_order_id"`
-	SellerOrderID  uuid.NullUUID `json:"seller_order_id"`
-	ExecutionPrice string        `json:"execution_price"`
-	Quantity       int32         `json:"quantity"`
-	ExecutedAt     sql.NullTime  `json:"executed_at"`
+	ID             int32            `json:"id"`
+	BuyerOrderID   pgtype.UUID      `json:"buyer_order_id"`
+	SellerOrderID  pgtype.UUID      `json:"seller_order_id"`
+	ExecutionPrice int64            `json:"execution_price"`
+	Quantity       int32            `json:"quantity"`
+	ExecutedAt     pgtype.Timestamp `json:"executed_at"`
 }

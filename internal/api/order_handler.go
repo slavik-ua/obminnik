@@ -3,18 +3,21 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/google/uuid"
+	"math"
 	"net/http"
-	"simple-orderbook/internal/core/domain"
-	"simple-orderbook/internal/db"
 	"time"
+
+	"github.com/google/uuid"
+	"simple-orderbook/internal/core/domain"
+	// "simple-orderbook/internal/db"
+	"simple-orderbook/internal/core/ports"
 )
 
 type OrderHandler struct {
-	store *db.Store
+	store ports.OrderRepository
 }
 
-func NewOrderHandler(store *db.Store) *OrderHandler {
+func NewOrderHandler(store ports.OrderRepository) *OrderHandler {
 	return &OrderHandler{
 		store: store,
 	}
@@ -35,12 +38,17 @@ func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	dec.DisallowUnknownFields()
 
 	if err := dec.Decode(&req); err != nil {
-		http.Error(w, "Request body too large or invalid", http.StatusRequestEntityTooLarge)
+		http.Error(w, "Request body too large or invalid: %v", http.StatusRequestEntityTooLarge)
 		return
 	}
 
 	if req.Quantity <= 0 || req.Price <= 0 {
 		http.Error(w, "Price and Quantity must be positive", http.StatusBadRequest)
+		return
+	}
+
+	if req.Quantity > math.MaxInt32 {
+		http.Error(w, "Quantity is too large", http.StatusBadRequest)
 		return
 	}
 
@@ -54,7 +62,13 @@ func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		Status:            domain.StatusNew,
 	}
 
-	// Save to database
+	err := h.store.Create(r.Context(), &newOrder)
+	if err != nil {
+		http.Error(w, "Invalid", http.StatusBadRequest)
+		return
+	}
+
+	fmt.Println(newOrder.ID, newOrder.Price, newOrder.Side)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)

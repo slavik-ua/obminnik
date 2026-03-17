@@ -2,13 +2,12 @@ package database
 
 import (
 	"context"
-	"os"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func NewPostgresPool(ctx context.Context) (*pgxpool.Pool, error) {
-	connString := os.Getenv("DB_URL")
+func NewPostgresPool(ctx context.Context, dbURL string) (*pgxpool.Pool, error) {
+	connString := dbURL
 
 	pool, err := pgxpool.New(ctx, connString)
 	if err != nil {
