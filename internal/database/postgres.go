@@ -7,9 +7,7 @@ import (
 )
 
 func NewPostgresPool(ctx context.Context, dbURL string) (*pgxpool.Pool, error) {
-	connString := dbURL
-
-	pool, err := pgxpool.New(ctx, connString)
+	pool, err := pgxpool.New(ctx, dbURL)
 	if err != nil {
 		return nil, err
 	}

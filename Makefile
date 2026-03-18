@@ -25,6 +25,6 @@ migrate-up:
 	goose -dir ${MIGRATIONS_DIR} postgres "${DB_URL}" up
 
 migrate-down:
-	goose -dir {MIGRATIONS_DIR} postgres "${DB_URL}" down
+	goose -dir ${MIGRATIONS_DIR} postgres "${DB_URL}" down
 
-.PHONY: build run test clean, migrate-up, migrate-down
+.PHONY: build run test clean migrate-up migrate-down

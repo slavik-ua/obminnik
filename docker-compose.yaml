@@ -5,7 +5,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
-      POSTGRESS_DB: exchange
+      POSTGRES_DB: exchange
     ports:
       - "5432:5432"
     

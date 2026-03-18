@@ -41,7 +41,7 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/order", handler.CreateOrder)
+	mux.HandleFunc("POST /order", handler.CreateOrder)
 
 	server := &http.Server{
 		Addr:    ":8000",

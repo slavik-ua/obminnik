@@ -2,14 +2,14 @@ package api
 
 import (
 	"encoding/json"
-	"fmt"
 	"math"
 	"net/http"
 	"time"
+	"log"
+	"fmt"
 
 	"github.com/google/uuid"
 	"simple-orderbook/internal/core/domain"
-	// "simple-orderbook/internal/db"
 	"simple-orderbook/internal/core/ports"
 )
 
@@ -38,7 +38,7 @@ func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	dec.DisallowUnknownFields()
 
 	if err := dec.Decode(&req); err != nil {
-		http.Error(w, "Request body too large or invalid: %v", http.StatusRequestEntityTooLarge)
+		http.Error(w, fmt.Sprintf("Request body too large or invalid: %v", err), http.StatusRequestEntityTooLarge)
 		return
 	}
 
@@ -64,11 +64,11 @@ func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 
 	err := h.store.Create(r.Context(), &newOrder)
 	if err != nil {
-		http.Error(w, "Invalid", http.StatusBadRequest)
+		http.Error(w, "Side should be 0, 1, BUY, SELL", http.StatusInternalServerError)
 		return
 	}
 
-	fmt.Println(newOrder.ID, newOrder.Price, newOrder.Side)
+	log.Printf("NEW ORDER: ID: %s, PRICE: %d, SIDE: %d", newOrder.ID, newOrder.Price, newOrder.Side)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
