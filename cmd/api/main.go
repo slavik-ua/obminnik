@@ -2,11 +2,12 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"log"
 	"net/http"
 	"os"
-	"sort"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -16,61 +17,6 @@ import (
 	"simple-orderbook/internal/database"
 	"simple-orderbook/internal/db"
 )
-
-type Order struct {
-	ID       string
-	Price    float64 // Change to other
-	Quantity int
-	Side     string
-}
-
-type OrderBook struct {
-	Bids []Order
-	Asks []Order
-}
-
-func NewOrderBook() *OrderBook {
-	return &OrderBook{}
-}
-
-func (ob *OrderBook) AddOrder(order Order) {
-	if order.Side == "BUY" {
-		ob.Bids = append(ob.Bids, order)
-		sort.Slice(ob.Bids, func(i, j int) bool {
-			return ob.Bids[i].Price > ob.Bids[j].Price
-		})
-	} else {
-		ob.Asks = append(ob.Asks, order)
-		sort.Slice(ob.Asks, func(i, j int) bool {
-			return ob.Asks[i].Price < ob.Asks[j].Price
-		})
-	}
-}
-
-func (ob *OrderBook) Match() {
-	for len(ob.Bids) > 0 && len(ob.Asks) > 0 {
-		bestBid := &ob.Bids[0]
-		bestAsk := &ob.Asks[0]
-
-		if bestBid.Price >= bestAsk.Price {
-			fillQty := min(bestBid.Quantity, bestAsk.Quantity)
-
-			bestBid.Quantity -= fillQty
-			bestAsk.Quantity -= fillQty
-
-			fmt.Println("Matched:", fillQty, "at price", bestAsk.Price)
-
-			if bestBid.Quantity == 0 {
-				ob.Bids = ob.Bids[1:]
-			}
-			if bestAsk.Quantity == 0 {
-				ob.Asks = ob.Asks[1:]
-			}
-		} else {
-			break
-		}
-	}
-}
 
 func main() {
 	err := godotenv.Load()
@@ -87,6 +33,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Could create database pool: %s, %v", dbURL, err)
 	}
+	defer pool.Close()
 
 	store := db.NewStore(pool)
 	repo := repository.NewPostgresOrderRepository(store)
@@ -106,16 +53,24 @@ func main() {
 		IdleTimeout:       120 * time.Second,
 	}
 
-	log.Println("Started listening at :8000")
-	if err := server.ListenAndServe(); err != nil {
-		panic(err)
+	go func() {
+		log.Println("Started listening on :8000...")
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatal("listen: %s\n", err)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	log.Println("Shutting down server...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(ctx); err != nil {
+		log.Fatal("Server forced to shutdown:", err)
 	}
 
-	// ob := NewOrderBook()
-
-	// ob.AddOrder(Order{"ID1", 140, 20, "BUY"})
-	// ob.AddOrder(Order{"ID2", 160, 20, "BUY"})
-	// ob.AddOrder(Order{"ID3", 120, 20, "SELL"})
-
-	// ob.Match()
+	log.Println("Server exiting gracefully")
 }
