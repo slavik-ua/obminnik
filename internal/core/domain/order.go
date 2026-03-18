@@ -2,6 +2,9 @@ package domain
 
 import (
 	"time"
+	"strings"
+	"bytes"
+	"errors"
 
 	"github.com/google/uuid"
 )
@@ -12,6 +15,21 @@ const (
 	SideBuy OrderSide = iota
 	SideSell
 )
+
+func (s *OrderSide) UnmarshalJSON(b []byte) error {
+	str := strings.ToUpper(string(bytes.Trim(b, `"`)))
+
+	switch str {
+	case "BUY":
+		*s = SideBuy
+	case "SELL":
+		*s = SideSell
+	default:
+		return errors.New("invalid order side: must be BUY or SELL")
+	}
+
+	return nil
+}
 
 type OrderStatus int8
 

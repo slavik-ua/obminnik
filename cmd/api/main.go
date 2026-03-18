@@ -56,7 +56,7 @@ func main() {
 	go func() {
 		log.Println("Started listening on :8000...")
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Fatal("listen: %s\n", err)
+			log.Fatalf("listen: %s\n", err)
 		}
 	}()
 

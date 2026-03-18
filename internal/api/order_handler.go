@@ -64,7 +64,7 @@ func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 
 	err := h.store.Create(r.Context(), &newOrder)
 	if err != nil {
-		http.Error(w, "Side should be 0, 1, BUY, SELL", http.StatusInternalServerError)
+		http.Error(w, "Something went wrong", http.StatusInternalServerError)
 		return
 	}
 
