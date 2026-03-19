@@ -38,7 +38,7 @@ func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	dec.DisallowUnknownFields()
 
 	if err := dec.Decode(&req); err != nil {
-		http.Error(w, fmt.Sprintf("Request body too large or invalid: %v", err), http.StatusRequestEntityTooLarge)
+		http.Error(w, fmt.Sprintf("Request body too large or invalid: %v", err), http.StatusBadRequest)
 		return
 	}
 

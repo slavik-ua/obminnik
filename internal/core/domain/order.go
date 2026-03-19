@@ -5,6 +5,7 @@ import (
 	"strings"
 	"bytes"
 	"errors"
+	"encoding/json"
 
 	"github.com/google/uuid"
 )
@@ -29,6 +30,21 @@ func (s *OrderSide) UnmarshalJSON(b []byte) error {
 	}
 
 	return nil
+}
+
+func (s OrderSide) MarshalJSON() ([]byte, error) {
+	var str string
+
+	switch s {
+	case SideBuy:
+		str = "BUY"
+	case SideSell:
+		str = "SELL"
+	default:
+		return nil, errors.New("invalid order side value")
+	}
+
+	return json.Marshal(str)
 }
 
 type OrderStatus int8
