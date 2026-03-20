@@ -59,17 +59,20 @@ const (
 // Price (8 bytes)
 // Quantity (8 bytes)
 // RemainingQuantity (8 bytes)
-// CreatedAt (24 bytes)
+// CreatedAt (8 bytes)
 // Side (1 byte)
 // Status (1 byte)
-// Total = 66 bytes
-// With padding = 72 bytes
+// Total = 74 bytes
+// With padding = 80 bytes
 type Order struct {
 	ID                uuid.UUID   `json:"id"`
+	CreatedAt         int64       `json:"created_at"`
 	Price             int64       `json:"price"`
 	Quantity          int64       `json:"quantity"`
 	RemainingQuantity int64       `json:"remaining_quantity"`
-	CreatedAt         time.Time   `json:"created_at"`
+	parent            *PriceLevel
+	next              *Order
+	prev              *Order
 	Side              OrderSide   `json:"side"`
 	Status            OrderStatus `json:"status"`
 }
