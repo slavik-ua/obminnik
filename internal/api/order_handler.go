@@ -57,7 +57,7 @@ func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		Price:             req.Price,
 		Quantity:          req.Quantity,
 		RemainingQuantity: req.Quantity,
-		CreatedAt:         time.Now(),
+		CreatedAt:         time.Now().Unix(),
 		Side:              req.Side,
 		Status:            domain.StatusNew,
 	}

@@ -2,38 +2,44 @@ package domain
 
 import (
 	"sync"
+	"slices"
+	"cmp"
+
+	"github.com/google/uuid"
 )
 
 type PriceLevel struct {
-	Price    int
-	TotalVol int
+	Price    int64
+	TotalVol int64
 	Head     *Order
 	Tail     *Order
 }
 
 type OrderBook struct {
-	Bids   map[int]*PriceLevel
-	Asks   map[int]*PriceLevel
-	Orders map[string]*Order
-	mu     *sync.RWMutex
+	Bids      map[int64]*PriceLevel
+	Asks      map[int64]*PriceLevel
+	BidsIndex []int64
+	AsksIndex []int64
+	Orders    map[uuid.UUID]*Order
+	mu        *sync.RWMutex
 }
 
 func NewOrderBook() *OrderBook {
 	return &OrderBook{
-		Bids:   make(map[int]*PriceLevel),
-		Asks:   make(map[int]*PriceLevel),
-		Orders: make(map[string]*Order),
+		Bids:   make(map[int64]*PriceLevel),
+		Asks:   make(map[int64]*PriceLevel),
+		Orders: make(map[uuid.UUID]*Order),
 		mu:     &sync.RWMutex{},
 	}
 }
 
-func (ob *OrderBook) AddOrder(id string, price int, quantity int, side OrderSide) {
+func (ob *OrderBook) AddOrder(id uuid.UUID, price int64, quantity int64, side OrderSide) {
 	ob.mu.Lock()
 	defer ob.mu.Unlock()
 
 	order := &Order{ID: id, Price: price, Quantity: quantity, RemainingQuantity: quantity, Side: side, Status: StatusNew}
 
-	var levels map[int]*PriceLevel
+	var levels map[int64]*PriceLevel
 	if side == SideBuy {
 		levels = ob.Bids
 	} else {
@@ -42,21 +48,33 @@ func (ob *OrderBook) AddOrder(id string, price int, quantity int, side OrderSide
 
 	if _, ok := levels[price]; !ok {
 		levels[price] = &PriceLevel{Price: price}
-	}
-	level := levels[price]
 
+		if side == SideBuy {
+			idx, _ := slices.BinarySearchFunc(ob.BidsIndex, price, func(e, target int64) int {
+				return cmp.Compare(target, e)
+			})
+			ob.BidsIndex = slices.Insert(ob.BidsIndex, idx, price)
+		} else {
+			idx, _ := slices.BinarySearchFunc(ob.AsksIndex, price, func(e, target int64) int {
+				return cmp.Compare(e, target)
+			})
+			ob.AsksIndex = slices.Insert(ob.AsksIndex, idx, price)
+		}
+	}
+
+	level := levels[price]
 	if level.Tail == nil {
 		level.Head = order
 		level.Tail = order
 	} else {
-		order.Prev = level.Tail
-		level.Tail.Next = order
+		order.prev = level.Tail
+		level.Tail.next = order
 		level.Tail = order
 	}
 	level.TotalVol += quantity
-
+	order.parent = level
 	ob.Orders[id] = order
-}
+}	
 
 func (ob *OrderBook) removeOrderInternal(order *Order) {
 	level := order.parent
@@ -70,17 +88,27 @@ func (ob *OrderBook) removeOrderInternal(order *Order) {
 	if order.next != nil {
 		order.next.prev = order.prev
 	} else {
-		level.Tail = order.Prev
+		level.Tail = order.prev
 	}
 
-	level.TotalVol -= int(order.RemainingQuantity)
-	delete(ob.Orders, order.ID.String())
+	level.TotalVol -= order.RemainingQuantity
+	delete(ob.Orders, order.ID)
+
+	if level.Head == nil {
+		if order.Side == SideBuy {
+			ob.BidsIndex = slices.DeleteFunc(ob.BidsIndex, func(p int64) bool { return p == order.Price })
+			delete(ob.Bids, order.Price)
+		} else {
+			ob.AsksIndex = slices.DeleteFunc(ob.AsksIndex, func(p int64) bool { return p == order.Price })
+			delete(ob.Asks, order.Price)
+		}
+	}
 
 	order.next = nil
 	order.prev = nil
 }
 
-func (ob *OrderBook) CancelOrder(id string) {
+func (ob *OrderBook) CancelOrder(id uuid.UUID) {
 	ob.mu.Lock()
 	defer ob.mu.Unlock()
 
@@ -102,37 +130,43 @@ func (ob *OrderBook) Match(takeOrder *Order) {
 	ob.mu.Lock()
 	defer ob.mu.Unlock()
 
-	var level *PriceLevel
-	if takeOrder.Side == SideBuy {
-		level = ob.Asks[int(takeOrder.Price)]
-	} else {
-		level = ob.Bids[int(takeOrder.Price)]
-	}
+	for takeOrder.RemainingQuantity > 0 {
+		var levelPrice int64
+		var levels map[int64]*PriceLevel
 
-	if level == nil || level.Head == nil {
-		return
-	}
+		if takeOrder.Side == SideBuy {
+			if len(ob.AsksIndex) == 0 { break }
+			levelPrice = ob.AsksIndex[0]
 
-	currentMaker := level.Head
-	for currentMaker != nil && takeOrder.RemainingQuantity > 0 {
-		tradeQty := min(takeOrder.RemainingQuantity, currentMaker.RemainingQuantity)
-
-		takeOrder.RemainingQuantity -= tradeQty
-		currentMaker.RemainingQuantity -= tradeQty
-		level.TotalVol -= int(tradeQty)
-
-		if currentMaker.RemainingQuantity == 0 {
-			currentMaker.Status = StatusFilled
-			ob.removeOrderInternal(currentMaker)
-			currentMaker = level.Head
+			if takeOrder.Price < levelPrice { break }
+			levels = ob.Asks
 		} else {
-			currentMaker.Status = StatusPartial
+			if len(ob.BidsIndex) == 0 { break }
+			levelPrice = ob.BidsIndex[0]
+
+			if takeOrder.Price > levelPrice { break }
+			levels = ob.Bids
+		}
+
+		level := levels[levelPrice]
+		currentMaker := level.Head
+
+		for currentMaker != nil && takeOrder.RemainingQuantity > 0 {
+			tradeQty := min(takeOrder.RemainingQuantity, currentMaker.RemainingQuantity)
+
+			takeOrder.RemainingQuantity -= tradeQty
+			currentMaker.RemainingQuantity -= tradeQty
+
+			if currentMaker.RemainingQuantity == 0 {
+				currentMaker.Status = StatusFilled
+				nextOrder := currentMaker.next
+				ob.removeOrderInternal(currentMaker)
+				currentMaker = nextOrder
+			}
 		}
 	}
 
 	if takeOrder.RemainingQuantity == 0 {
 		takeOrder.Status = StatusFilled
-	} else {
-		takeOrder.Status = StatusPartial
 	}
 }
