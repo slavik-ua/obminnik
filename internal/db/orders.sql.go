@@ -8,14 +8,14 @@ package db
 import (
 	"context"
 
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/google/uuid"
 )
 
 const cancelOrder = `-- name: CancelOrder :exec
 DELETE FROM orders WHERE id = $1
 `
 
-func (q *Queries) CancelOrder(ctx context.Context, id pgtype.UUID) error {
+func (q *Queries) CancelOrder(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, cancelOrder, id)
 	return err
 }
@@ -30,11 +30,11 @@ RETURNING id, price, quantity, side, remaining_quantity, created_at
 `
 
 type CreateOrderParams struct {
-	ID                pgtype.UUID `json:"id"`
-	Price             int64       `json:"price"`
-	Quantity          int32       `json:"quantity"`
-	Side              OrderSide   `json:"side"`
-	RemainingQuantity int32       `json:"remaining_quantity"`
+	ID                uuid.UUID `json:"id"`
+	Price             int64     `json:"price"`
+	Quantity          int64     `json:"quantity"`
+	Side              OrderSide `json:"side"`
+	RemainingQuantity int64     `json:"remaining_quantity"`
 }
 
 func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (Order, error) {
@@ -59,37 +59,37 @@ func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (Order
 
 const createTrade = `-- name: CreateTrade :one
 INSERT INTO trades (
-    buyer_order_id, seller_order_id, execution_price, quantity
+    id, buyer_order_id, seller_order_id, taker_user_id, maker_user_id, execution_price, quantity
 ) VALUES (
-    $1, $2, $3, $4
+    $1, $2, $3, $4, $5, $6, $7
 )
-RETURNING id, buyer_order_id, seller_order_id, execution_price, quantity, executed_at
+ON CONFLICT DO NOTHING
+RETURNING id
 `
 
 type CreateTradeParams struct {
-	BuyerOrderID   pgtype.UUID `json:"buyer_order_id"`
-	SellerOrderID  pgtype.UUID `json:"seller_order_id"`
-	ExecutionPrice int64       `json:"execution_price"`
-	Quantity       int32       `json:"quantity"`
+	ID             uuid.UUID `json:"id"`
+	BuyerOrderID   uuid.UUID `json:"buyer_order_id"`
+	SellerOrderID  uuid.UUID `json:"seller_order_id"`
+	TakerUserID    uuid.UUID `json:"taker_user_id"`
+	MakerUserID    uuid.UUID `json:"maker_user_id"`
+	ExecutionPrice int64     `json:"execution_price"`
+	Quantity       int64     `json:"quantity"`
 }
 
-func (q *Queries) CreateTrade(ctx context.Context, arg CreateTradeParams) (Trade, error) {
+func (q *Queries) CreateTrade(ctx context.Context, arg CreateTradeParams) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, createTrade,
+		arg.ID,
 		arg.BuyerOrderID,
 		arg.SellerOrderID,
+		arg.TakerUserID,
+		arg.MakerUserID,
 		arg.ExecutionPrice,
 		arg.Quantity,
 	)
-	var i Trade
-	err := row.Scan(
-		&i.ID,
-		&i.BuyerOrderID,
-		&i.SellerOrderID,
-		&i.ExecutionPrice,
-		&i.Quantity,
-		&i.ExecutedAt,
-	)
-	return i, err
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
 }
 
 const getOrder = `-- name: GetOrder :one
@@ -97,7 +97,7 @@ SELECT id, price, quantity, side, remaining_quantity, created_at FROM orders
 WHERE id = $1 LIMIT 1
 `
 
-func (q *Queries) GetOrder(ctx context.Context, id pgtype.UUID) (Order, error) {
+func (q *Queries) GetOrder(ctx context.Context, id uuid.UUID) (Order, error) {
 	row := q.db.QueryRow(ctx, getOrder, id)
 	var i Order
 	err := row.Scan(
@@ -112,7 +112,7 @@ func (q *Queries) GetOrder(ctx context.Context, id pgtype.UUID) (Order, error) {
 }
 
 const getRecentTrades = `-- name: GetRecentTrades :many
-SELECT id, buyer_order_id, seller_order_id, execution_price, quantity, executed_at FROM trades
+SELECT id, buyer_order_id, seller_order_id, taker_user_id, maker_user_id, execution_price, quantity, executed_at FROM trades
 ORDER BY executed_at DESC
 LIMIT $1
 `
@@ -130,6 +130,8 @@ func (q *Queries) GetRecentTrades(ctx context.Context, limit int32) ([]Trade, er
 			&i.ID,
 			&i.BuyerOrderID,
 			&i.SellerOrderID,
+			&i.TakerUserID,
+			&i.MakerUserID,
 			&i.ExecutionPrice,
 			&i.Quantity,
 			&i.ExecutedAt,
@@ -193,8 +195,8 @@ RETURNING id, price, quantity, side, remaining_quantity, created_at
 `
 
 type UpdateOrderQuantityParams struct {
-	ID                pgtype.UUID `json:"id"`
-	RemainingQuantity int32       `json:"remaining_quantity"`
+	ID                uuid.UUID `json:"id"`
+	RemainingQuantity int64     `json:"remaining_quantity"`
 }
 
 func (q *Queries) UpdateOrderQuantity(ctx context.Context, arg UpdateOrderQuantityParams) (Order, error) {

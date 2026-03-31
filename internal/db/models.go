@@ -8,6 +8,7 @@ import (
 	"database/sql/driver"
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -54,19 +55,21 @@ func (ns NullOrderSide) Value() (driver.Value, error) {
 }
 
 type Order struct {
-	ID                pgtype.UUID      `json:"id"`
+	ID                uuid.UUID        `json:"id"`
 	Price             int64            `json:"price"`
-	Quantity          int32            `json:"quantity"`
+	Quantity          int64            `json:"quantity"`
 	Side              OrderSide        `json:"side"`
-	RemainingQuantity int32            `json:"remaining_quantity"`
+	RemainingQuantity int64            `json:"remaining_quantity"`
 	CreatedAt         pgtype.Timestamp `json:"created_at"`
 }
 
 type Trade struct {
-	ID             int32            `json:"id"`
-	BuyerOrderID   pgtype.UUID      `json:"buyer_order_id"`
-	SellerOrderID  pgtype.UUID      `json:"seller_order_id"`
+	ID             uuid.UUID        `json:"id"`
+	BuyerOrderID   uuid.UUID        `json:"buyer_order_id"`
+	SellerOrderID  uuid.UUID        `json:"seller_order_id"`
+	TakerUserID    uuid.UUID        `json:"taker_user_id"`
+	MakerUserID    uuid.UUID        `json:"maker_user_id"`
 	ExecutionPrice int64            `json:"execution_price"`
-	Quantity       int32            `json:"quantity"`
+	Quantity       int64            `json:"quantity"`
 	ExecutedAt     pgtype.Timestamp `json:"executed_at"`
 }

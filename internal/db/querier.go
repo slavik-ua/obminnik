@@ -7,14 +7,14 @@ package db
 import (
 	"context"
 
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/google/uuid"
 )
 
 type Querier interface {
-	CancelOrder(ctx context.Context, id pgtype.UUID) error
+	CancelOrder(ctx context.Context, id uuid.UUID) error
 	CreateOrder(ctx context.Context, arg CreateOrderParams) (Order, error)
-	CreateTrade(ctx context.Context, arg CreateTradeParams) (Trade, error)
-	GetOrder(ctx context.Context, id pgtype.UUID) (Order, error)
+	CreateTrade(ctx context.Context, arg CreateTradeParams) (uuid.UUID, error)
+	GetOrder(ctx context.Context, id uuid.UUID) (Order, error)
 	GetRecentTrades(ctx context.Context, limit int32) ([]Trade, error)
 	ListActiveOrdersBySide(ctx context.Context, arg ListActiveOrdersBySideParams) ([]Order, error)
 	UpdateOrderQuantity(ctx context.Context, arg UpdateOrderQuantityParams) (Order, error)

@@ -3,8 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
-
-	"github.com/jackc/pgx/v5/pgtype"
+	
 	"simple-orderbook/internal/core/domain"
 	"simple-orderbook/internal/db"
 )
@@ -37,11 +36,11 @@ func (pso *PostgresOrderRepository) Create(ctx context.Context, order *domain.Or
 	}
 
 	params := db.CreateOrderParams{
-		ID:                pgtype.UUID{Bytes: order.ID, Valid: true},
+		ID:                order.ID,
 		Price:             order.Price,
-		Quantity:          int32(order.Quantity),
+		Quantity:          order.Quantity,
 		Side:              side,
-		RemainingQuantity: int32(order.Quantity),
+		RemainingQuantity: order.Quantity,
 	}
 
 	_, err = pso.store.CreateOrder(ctx, params)

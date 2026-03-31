@@ -3,20 +3,26 @@ CREATE TYPE order_side AS ENUM ('BUY', 'SELL');
 
 CREATE TABLE orders (
     id UUID PRIMARY KEY,
-    price DECIMAL(18, 4) NOT NULL,
-    quantity INT NOT NULL,
+    price BIGINT NOT NULL,
+    quantity BIGINT NOT NULL,
     side order_side NOT NULL,
-    remaining_quantity INT NOT NULL,
+    remaining_quantity BIGINT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE trades (
-    id SERIAL PRIMARY KEY,
+    id UUID PRIMARY KEY,
     buyer_order_id UUID REFERENCES orders(id),
     seller_order_id UUID REFERENCES orders(id),
-    execution_price DECIMAL(18, 4) NOT NULL,
-    quantity INT NOT NULL,
+
+    taker_user_id UUID NOT NULL,
+    maker_user_id UUID NOT NULL,
+
+    execution_price BIGINT NOT NULL,
+    quantity BIGINT NOT NULL,
     executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+
+    CONSTRAINT trades_idempontency_key UNIQUE (buyer_order_id, seller_order_id, execution_price, quantity)
 );
 
 -- +goose DOWN

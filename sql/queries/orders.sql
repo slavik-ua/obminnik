@@ -26,11 +26,13 @@ RETURNING *;
 
 -- name: CreateTrade :one
 INSERT INTO trades (
-    buyer_order_id, seller_order_id, execution_price, quantity
+    id, buyer_order_id, seller_order_id, taker_user_id, maker_user_id, execution_price, quantity
 ) VALUES (
-    $1, $2, $3, $4
+    $1, $2, $3, $4, $5, $6, $7
 )
-RETURNING *;
+ON CONFLICT ON CONSTRAINT trades_idempontency_key
+DO NOTHING
+RETURNING id;
 
 -- name: GetRecentTrades :many
 SELECT * FROM trades
