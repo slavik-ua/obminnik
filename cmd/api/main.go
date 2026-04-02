@@ -13,6 +13,8 @@ import (
 	"github.com/joho/godotenv"
 
 	"simple-orderbook/internal/adapters/repository"
+	"simple-orderbook/internal/core/domain"
+	"simple-orderbook/internal/core/services"
 	"simple-orderbook/internal/api"
 	"simple-orderbook/internal/database"
 	"simple-orderbook/internal/db"
@@ -36,8 +38,11 @@ func main() {
 	defer pool.Close()
 
 	store := db.NewStore(pool)
-	repo := repository.NewPostgresOrderRepository(store)
-	handler := api.NewOrderHandler(repo)
+	orderBook := domain.NewOrderBook()
+	orderRepo := repository.NewPostgresOrderRepository(store)
+	tradeRepo := repository.NewPostgresTradeRepository(store)
+	svc := services.NewOrderService(store, orderRepo, tradeRepo, orderBook)
+	handler := api.NewOrderHandler(svc)
 
 	mux := http.NewServeMux()
 

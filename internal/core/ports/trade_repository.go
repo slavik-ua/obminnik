@@ -3,9 +3,10 @@ package ports
 import (
 	"context"
 
+	"simple-orderbook/internal/db"
 	"simple-orderbook/internal/core/domain"
 )
 
 type TradeRepository interface {
-	CreateTrade(ctx context.Context, trade *domain.Trade) error
+	Create(ctx context.Context, q *db.Queries, trade *domain.Trade) error
 }

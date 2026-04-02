@@ -23,12 +23,11 @@ func (s *Store) ExecTx(ctx context.Context, fn func(*Queries) error) error {
 		return err
 	}
 
+	defer tx.Rollback(ctx)
+
 	q := New(tx)
 	err = fn(q)
 	if err != nil {
-		if rbErr := tx.Rollback(ctx); rbErr != nil {
-			return rbErr
-		}
 		return err
 	}
 

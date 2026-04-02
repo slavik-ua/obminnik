@@ -29,7 +29,7 @@ func toDBSide(order domain.OrderSide) (db.OrderSide, error) {
 	}
 }
 
-func (pso *PostgresOrderRepository) Create(ctx context.Context, order *domain.Order) error {
+func (pso *PostgresOrderRepository) Create(ctx context.Context, q *db.Queries, order *domain.Order) error {
 	side, err := toDBSide(order.Side)
 	if err != nil {
 		return err
@@ -43,6 +43,6 @@ func (pso *PostgresOrderRepository) Create(ctx context.Context, order *domain.Or
 		RemainingQuantity: order.Quantity,
 	}
 
-	_, err = pso.store.CreateOrder(ctx, params)
+	_, err = q.CreateOrder(ctx, params)
 	return err
 }

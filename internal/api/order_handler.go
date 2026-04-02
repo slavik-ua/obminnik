@@ -14,12 +14,12 @@ import (
 )
 
 type OrderHandler struct {
-	store ports.OrderRepository
+	service ports.OrderService
 }
 
-func NewOrderHandler(store ports.OrderRepository) *OrderHandler {
+func NewOrderHandler(service ports.OrderService) *OrderHandler {
 	return &OrderHandler{
-		store: store,
+		service: service,
 	}
 }
 
@@ -62,7 +62,7 @@ func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		Status:            domain.StatusNew,
 	}
 
-	err := h.store.Create(r.Context(), &newOrder)
+	_, err := h.service.PlaceOrder(r.Context(), &newOrder)
 	if err != nil {
 		http.Error(w, "Something went wrong", http.StatusInternalServerError)
 		return

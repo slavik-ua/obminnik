@@ -13,13 +13,13 @@ type PostgresTradeRepository struct {
 	store *db.Store
 }
 
-func NewPostgreSTradeRepository(store *db.Store) *PostgresTradeRepository {
+func NewPostgresTradeRepository(store *db.Store) *PostgresTradeRepository {
 	return &PostgresTradeRepository{
 		store: store,
 	}
 }
 
-func (tr *PostgresTradeRepository) CreateTrade(ctx context.Context, trade *domain.Trade) error {
+func (tr *PostgresTradeRepository) Create(ctx context.Context, q *db.Queries, trade *domain.Trade) error {
 	params := db.CreateTradeParams{
 		ID:             trade.ID,
 		BuyerOrderID:   trade.MakerOrderID,
@@ -30,13 +30,11 @@ func (tr *PostgresTradeRepository) CreateTrade(ctx context.Context, trade *domai
 		Quantity:       trade.Quantity,
 	}
 
-	_, err := tr.store.CreateTrade(ctx, params)
+	_, err := q.CreateTrade(ctx, params)
 	if err != nil {
-		// the trade already exists
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
 		}
-
 		return err
 	}
 
