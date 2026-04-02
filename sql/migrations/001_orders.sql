@@ -20,9 +20,9 @@ CREATE TABLE trades (
 
     execution_price BIGINT NOT NULL,
     quantity BIGINT NOT NULL,
-    executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT trades_idempontency_key UNIQUE (buyer_order_id, seller_order_id, execution_price, quantity)
+    CONSTRAINT trades_idempotency_key UNIQUE (buyer_order_id, seller_order_id, execution_price, quantity)
 );
 
 -- +goose DOWN

@@ -116,6 +116,7 @@ func (ob *OrderBook) matchInternal(taker *Order, trades []Trade) []Trade {
 			level.TotalVol -= tradeQty
 
 			trades = append(trades, Trade{
+				ID:           uuid.New(),
 				Price:        levelPrice,
 				Quantity:     tradeQty,
 				TakerOrderID: taker.ID,

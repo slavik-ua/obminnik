@@ -73,6 +73,7 @@ type Order struct {
 
 // Trade records a single matched execution between a taker and a maker order
 type Trade struct {
+	ID           uuid.UUID `json:"id"`
 	Price        int64     `json:"price"`
 	Quantity     int64     `json:"quantity"`
 	TakerOrderID uuid.UUID `json:"taker_order_id"`

@@ -63,7 +63,8 @@ INSERT INTO trades (
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7
 )
-ON CONFLICT DO NOTHING
+ON CONFLICT ON CONSTRAINT trades_idempotency_key
+DO NOTHING
 RETURNING id
 `
 
