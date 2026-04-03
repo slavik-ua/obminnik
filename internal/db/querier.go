@@ -16,7 +16,7 @@ type Querier interface {
 	CreateTrade(ctx context.Context, arg CreateTradeParams) (uuid.UUID, error)
 	GetOrder(ctx context.Context, id uuid.UUID) (Order, error)
 	GetRecentTrades(ctx context.Context, limit int32) ([]Trade, error)
-	ListActiveOrdersBySide(ctx context.Context, arg ListActiveOrdersBySideParams) ([]Order, error)
+	ListActiveOrdersBySide(ctx context.Context, side OrderSide) ([]Order, error)
 	UpdateOrderQuantity(ctx context.Context, arg UpdateOrderQuantityParams) (Order, error)
 }
 

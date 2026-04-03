@@ -3,6 +3,7 @@ CREATE TYPE order_side AS ENUM ('BUY', 'SELL');
 
 CREATE TABLE orders (
     id UUID PRIMARY KEY,
+    user_id UUID NOT NULL,
     price BIGINT NOT NULL,
     quantity BIGINT NOT NULL,
     side order_side NOT NULL,

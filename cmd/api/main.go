@@ -44,6 +44,10 @@ func main() {
 	svc := services.NewOrderService(store, orderRepo, tradeRepo, orderBook)
 	handler := api.NewOrderHandler(svc)
 
+	if err := svc.RebuildOrderBook(context.Background()); err != nil {
+		log.Fatalf("failed to rebuild order book: %v", err)
+	}
+
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("POST /order", handler.CreateOrder)

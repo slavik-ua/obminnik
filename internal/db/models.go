@@ -56,6 +56,7 @@ func (ns NullOrderSide) Value() (driver.Value, error) {
 
 type Order struct {
 	ID                uuid.UUID        `json:"id"`
+	UserID            uuid.UUID        `json:"user_id"`
 	Price             int64            `json:"price"`
 	Quantity          int64            `json:"quantity"`
 	Side              OrderSide        `json:"side"`

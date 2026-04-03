@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"fmt"
 
 	"simple-orderbook/internal/core/ports"
 	"simple-orderbook/internal/db"
@@ -42,4 +43,18 @@ func (s *OrderService) PlaceOrder(ctx context.Context, order *domain.Order) ([]d
 	})
 
 	return trades, err
+}
+
+func (s *OrderService) RebuildOrderBook(ctx context.Context) error {
+	for _, side := range []db.OrderSide{db.OrderSideBUY, db.OrderSideSELL} {
+		orders, err := s.orderRepo.ListActiveBySide(ctx, side)
+		if err != nil {
+			return fmt.Errorf("rebuild orderbook: %w", err)
+		}
+		for _, o := range orders {
+			s.book.PlaceOrder(o.ID, o.UserID, o.Price, o.RemainingQuantity, o.Side, nil)
+		}
+	}
+
+	return nil
 }

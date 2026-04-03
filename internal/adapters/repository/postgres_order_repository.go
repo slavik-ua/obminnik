@@ -29,7 +29,7 @@ func toDBSide(order domain.OrderSide) (db.OrderSide, error) {
 	}
 }
 
-func (pso *PostgresOrderRepository) Create(ctx context.Context, q *db.Queries, order *domain.Order) error {
+func (r *PostgresOrderRepository) Create(ctx context.Context, q *db.Queries, order *domain.Order) error {
 	side, err := toDBSide(order.Side)
 	if err != nil {
 		return err
@@ -45,4 +45,38 @@ func (pso *PostgresOrderRepository) Create(ctx context.Context, q *db.Queries, o
 
 	_, err = q.CreateOrder(ctx, params)
 	return err
+}
+
+func toDomainSide(side db.OrderSide) (domain.OrderSide, error) {
+	switch side {
+	case db.OrderSideBUY:
+		return domain.SideBuy, nil
+	case db.OrderSideSELL:
+		return domain.SideSell, nil
+	default:
+		return 0, fmt.Errorf("invalid db order side: %v", side)
+	}
+}
+
+func (r *PostgresOrderRepository) ListActiveBySide(ctx context.Context, side db.OrderSide) ([]*domain.Order, error) {
+	rows, err := r.store.ListActiveOrdersBySide(ctx, side)
+	if err != nil {
+		return nil, err
+	}
+
+	orders := make([]*domain.Order, len(rows))
+	for i, row := range rows {
+		side, err := toDomainSide(row.Side)
+		if err != nil {
+			return nil, err
+		}
+		orders[i] = &domain.Order{
+			ID:                row.ID,
+			Price:             row.Price,
+			RemainingQuantity: row.RemainingQuantity,
+			Side:              side,
+		}
+	}
+
+	return orders, nil
 }

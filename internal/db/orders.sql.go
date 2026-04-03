@@ -26,7 +26,7 @@ INSERT INTO orders (
 ) VALUES (
     $1, $2, $3, $4, $5
 )
-RETURNING id, price, quantity, side, remaining_quantity, created_at
+RETURNING id, user_id, price, quantity, side, remaining_quantity, created_at
 `
 
 type CreateOrderParams struct {
@@ -48,6 +48,7 @@ func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (Order
 	var i Order
 	err := row.Scan(
 		&i.ID,
+		&i.UserID,
 		&i.Price,
 		&i.Quantity,
 		&i.Side,
@@ -94,7 +95,7 @@ func (q *Queries) CreateTrade(ctx context.Context, arg CreateTradeParams) (uuid.
 }
 
 const getOrder = `-- name: GetOrder :one
-SELECT id, price, quantity, side, remaining_quantity, created_at FROM orders
+SELECT id, user_id, price, quantity, side, remaining_quantity, created_at FROM orders
 WHERE id = $1 LIMIT 1
 `
 
@@ -103,6 +104,7 @@ func (q *Queries) GetOrder(ctx context.Context, id uuid.UUID) (Order, error) {
 	var i Order
 	err := row.Scan(
 		&i.ID,
+		&i.UserID,
 		&i.Price,
 		&i.Quantity,
 		&i.Side,
@@ -148,21 +150,16 @@ func (q *Queries) GetRecentTrades(ctx context.Context, limit int32) ([]Trade, er
 }
 
 const listActiveOrdersBySide = `-- name: ListActiveOrdersBySide :many
-SELECT id, price, quantity, side, remaining_quantity, created_at FROM orders
+SELECT id, user_id, price, quantity, side, remaining_quantity, created_at FROM orders
 WHERE side = $1 and remaining_quantity > 0
 ORDER BY
     CASE WHEN $1 = 'BUY' THEN price END DESC,
-    CASE WHEN $2 = 'SELL' THEN price END ASC,
+    CASE WHEN $1 = 'SELL' THEN price END ASC,
     created_at ASC
 `
 
-type ListActiveOrdersBySideParams struct {
-	Side    OrderSide   `json:"side"`
-	Column2 interface{} `json:"column_2"`
-}
-
-func (q *Queries) ListActiveOrdersBySide(ctx context.Context, arg ListActiveOrdersBySideParams) ([]Order, error) {
-	rows, err := q.db.Query(ctx, listActiveOrdersBySide, arg.Side, arg.Column2)
+func (q *Queries) ListActiveOrdersBySide(ctx context.Context, side OrderSide) ([]Order, error) {
+	rows, err := q.db.Query(ctx, listActiveOrdersBySide, side)
 	if err != nil {
 		return nil, err
 	}
@@ -172,6 +169,7 @@ func (q *Queries) ListActiveOrdersBySide(ctx context.Context, arg ListActiveOrde
 		var i Order
 		if err := rows.Scan(
 			&i.ID,
+			&i.UserID,
 			&i.Price,
 			&i.Quantity,
 			&i.Side,
@@ -192,7 +190,7 @@ const updateOrderQuantity = `-- name: UpdateOrderQuantity :one
 UPDATE orders
 SET remaining_quantity = $2
 WHERE id = $1
-RETURNING id, price, quantity, side, remaining_quantity, created_at
+RETURNING id, user_id, price, quantity, side, remaining_quantity, created_at
 `
 
 type UpdateOrderQuantityParams struct {
@@ -205,6 +203,7 @@ func (q *Queries) UpdateOrderQuantity(ctx context.Context, arg UpdateOrderQuanti
 	var i Order
 	err := row.Scan(
 		&i.ID,
+		&i.UserID,
 		&i.Price,
 		&i.Quantity,
 		&i.Side,

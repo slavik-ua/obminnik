@@ -15,7 +15,7 @@ SELECT * FROM orders
 WHERE side = $1 and remaining_quantity > 0
 ORDER BY
     CASE WHEN $1 = 'BUY' THEN price END DESC,
-    CASE WHEN $2 = 'SELL' THEN price END ASC,
+    CASE WHEN $1 = 'SELL' THEN price END ASC,
     created_at ASC;
 
 -- name: UpdateOrderQuantity :one
