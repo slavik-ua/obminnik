@@ -72,7 +72,9 @@ func (r *PostgresOrderRepository) ListActiveBySide(ctx context.Context, side db.
 		}
 		orders[i] = &domain.Order{
 			ID:                row.ID,
+			UserID:            row.UserID,
 			Price:             row.Price,
+			CreatedAt:         row.CreatedAt.Time.UnixNano(),
 			RemainingQuantity: row.RemainingQuantity,
 			Side:              side,
 		}

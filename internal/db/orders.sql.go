@@ -22,15 +22,16 @@ func (q *Queries) CancelOrder(ctx context.Context, id uuid.UUID) error {
 
 const createOrder = `-- name: CreateOrder :one
 INSERT INTO orders (
-    id, price, quantity, side, remaining_quantity
+    id, user_id, price, quantity, side, remaining_quantity
 ) VALUES (
-    $1, $2, $3, $4, $5
+    $1, $2, $3, $4, $5, $6
 )
 RETURNING id, user_id, price, quantity, side, remaining_quantity, created_at
 `
 
 type CreateOrderParams struct {
 	ID                uuid.UUID `json:"id"`
+	UserID            uuid.UUID `json:"user_id"`
 	Price             int64     `json:"price"`
 	Quantity          int64     `json:"quantity"`
 	Side              OrderSide `json:"side"`
@@ -40,6 +41,7 @@ type CreateOrderParams struct {
 func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (Order, error) {
 	row := q.db.QueryRow(ctx, createOrder,
 		arg.ID,
+		arg.UserID,
 		arg.Price,
 		arg.Quantity,
 		arg.Side,

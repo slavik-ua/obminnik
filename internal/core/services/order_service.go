@@ -52,7 +52,7 @@ func (s *OrderService) RebuildOrderBook(ctx context.Context) error {
 			return fmt.Errorf("rebuild orderbook: %w", err)
 		}
 		for _, o := range orders {
-			s.book.PlaceOrder(o.ID, o.UserID, o.Price, o.RemainingQuantity, o.Side, nil)
+			s.book.RestoreOrder(o)
 		}
 	}
 

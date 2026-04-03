@@ -94,6 +94,15 @@ func (ob *OrderBook) GetOrder(id uuid.UUID) (*Order, bool) {
 	return o, ok
 }
 
+func (ob *OrderBook) RestoreOrder(order *Order) {
+	ob.mu.Lock()
+	defer ob.mu.Unlock()
+
+	if _, exists := ob.Orders[order.ID]; !exists {
+		ob.addOrderInternal(order)
+	}
+}
+
 // matchInternal walks the opposite side of the book and fills as much of
 // taker as possible. TotalVol is decremented per trade, not per removal,
 // so it always reflects actual available volume
