@@ -11,8 +11,10 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
+	goredis "github.com/redis/go-redis/v9"
 
 	"simple-orderbook/internal/adapters/repository"
+	"simple-orderbook/internal/adapters/redis"
 	"simple-orderbook/internal/core/domain"
 	"simple-orderbook/internal/core/services"
 	"simple-orderbook/internal/api"
@@ -44,13 +46,21 @@ func main() {
 	svc := services.NewOrderService(store, orderRepo, tradeRepo, orderBook)
 	handler := api.NewOrderHandler(svc)
 
+	redisClient := goredis.NewClient(&goredis.Options{
+		Addr: os.Getenv("REDIS_URL"),
+	})
+	defer redisClient.Close()
+
+	limiter := redis.NewFixedWindowRateLimiter(redisClient, 100, time.Minute)
+
 	if err := svc.RebuildOrderBook(context.Background()); err != nil {
 		log.Fatalf("failed to rebuild order book: %v", err)
 	}
 
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("POST /order", handler.CreateOrder)
+	finalHandler := api.RateLimitMiddleware(limiter, api.IPKey)(http.HandlerFunc(handler.CreateOrder))
+	mux.Handle("POST /order", finalHandler)
 
 	server := &http.Server{
 		Addr:    ":8000",
