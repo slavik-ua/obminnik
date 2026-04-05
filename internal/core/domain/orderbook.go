@@ -25,12 +25,41 @@ type OrderBook struct {
 	mu        sync.RWMutex
 }
 
+type OrderBookSnapshot struct {
+	Bids []PriceLevelSnapshot `json:"bids"`
+	Asks []PriceLevelSnapshot `json:"asks"`
+}
+
+type PriceLevelSnapshot struct {
+	Price    int64 `json: "price"`
+	TotalVol int64 `json: "total_vol"`
+}
+
 func NewOrderBook() *OrderBook {
 	return &OrderBook{
 		Bids:   make(map[int64]*PriceLevel),
 		Asks:   make(map[int64]*PriceLevel),
 		Orders: make(map[uuid.UUID]*Order),
 	}
+}
+
+func (ob *OrderBook) Snapshot() OrderBookSnapshot {
+	ob.mu.Lock()
+	defer ob.mu.Unlock()
+
+	snap := OrderBookSnapshot{
+		Bids: make([]PriceLevelSnapshot, len(ob.BidsIndex)),
+		Asks: make([]PriceLevelSnapshot, len(ob.AsksIndex)),
+	}
+
+	for i, price := range ob.BidsIndex {
+		snap.Bids[i] = PriceLevelSnapshot{Price: price, TotalVol: ob.Bids[price].TotalVol}
+	}
+	for i, price := range ob.AsksIndex {
+		snap.Asks[i] = PriceLevelSnapshot{Price: price, TotalVol: ob.Asks[price].TotalVol}
+	}
+
+	return snap
 }
 
 // PlaceOrder is the single entry point for submitting a limit order

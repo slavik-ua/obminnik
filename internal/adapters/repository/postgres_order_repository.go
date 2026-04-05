@@ -3,6 +3,8 @@ package repository
 import (
 	"context"
 	"fmt"
+
+	"github.com/google/uuid"
 	
 	"simple-orderbook/internal/core/domain"
 	"simple-orderbook/internal/db"
@@ -45,6 +47,10 @@ func (r *PostgresOrderRepository) Create(ctx context.Context, q *db.Queries, ord
 
 	_, err = q.CreateOrder(ctx, params)
 	return err
+}
+
+func (r *PostgresOrderRepository) Cancel(ctx context.Context, q *db.Queries, id uuid.UUID) error {
+	return q.CancelOrder(ctx, id)
 }
 
 func toDomainSide(side db.OrderSide) (domain.OrderSide, error) {

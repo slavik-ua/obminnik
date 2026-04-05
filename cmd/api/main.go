@@ -43,15 +43,18 @@ func main() {
 	orderBook := domain.NewOrderBook()
 	orderRepo := repository.NewPostgresOrderRepository(store)
 	tradeRepo := repository.NewPostgresTradeRepository(store)
-	svc := services.NewOrderService(store, orderRepo, tradeRepo, orderBook)
-	handler := api.NewOrderHandler(svc)
 
 	redisClient := goredis.NewClient(&goredis.Options{
 		Addr: os.Getenv("REDIS_URL"),
 	})
 	defer redisClient.Close()
 
+	cache := redis.NewOrderBookRedisCache(redisClient)
+
 	limiter := redis.NewFixedWindowRateLimiter(redisClient, 100, time.Minute)
+
+	svc := services.NewOrderService(store, orderRepo, tradeRepo, orderBook, cache)
+	handler := api.NewOrderHandler(svc)
 
 	if err := svc.RebuildOrderBook(context.Background()); err != nil {
 		log.Fatalf("failed to rebuild order book: %v", err)
@@ -61,6 +64,8 @@ func main() {
 
 	finalHandler := api.RateLimitMiddleware(limiter, api.IPKey)(http.HandlerFunc(handler.CreateOrder))
 	mux.Handle("POST /order", finalHandler)
+
+	mux.Handle("GET /orderbook", api.RateLimitMiddleware(limiter, api.IPKey)(http.HandlerFunc(handler.GetOrderBook)))
 
 	server := &http.Server{
 		Addr:    ":8000",

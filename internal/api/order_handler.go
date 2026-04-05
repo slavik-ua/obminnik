@@ -30,6 +30,16 @@ type CreateOrderRequest struct {
 	Side     domain.OrderSide `json:"side"`
 }
 
+func (h *OrderHandler) GetOrderBook(w http.ResponseWriter, r *http.Request) {
+	data, err := h.service.GetOrderBook(r.Context())
+	if err != nil {
+		http.Error(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(data)
+}
+
 func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, 1048576)
 

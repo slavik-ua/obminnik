@@ -40,4 +40,6 @@ ORDER BY executed_at DESC
 LIMIT $1;
 
 -- name: CancelOrder :exec
-DELETE FROM orders WHERE id = $1;
+UPDATE orders
+SET remaining_quantity = 0
+WHERE id = $1;
