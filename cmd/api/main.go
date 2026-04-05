@@ -43,6 +43,7 @@ func main() {
 	orderBook := domain.NewOrderBook()
 	orderRepo := repository.NewPostgresOrderRepository(store)
 	tradeRepo := repository.NewPostgresTradeRepository(store)
+	outboxRepo := repository.NewPostgresOutboxRepository(store)
 
 	redisClient := goredis.NewClient(&goredis.Options{
 		Addr: os.Getenv("REDIS_URL"),
@@ -53,7 +54,7 @@ func main() {
 
 	limiter := redis.NewFixedWindowRateLimiter(redisClient, 100, time.Minute)
 
-	svc := services.NewOrderService(store, orderRepo, tradeRepo, orderBook, cache)
+	svc := services.NewOrderService(store, orderRepo, tradeRepo, outboxRepo, orderBook, cache)
 	handler := api.NewOrderHandler(svc)
 
 	if err := svc.RebuildOrderBook(context.Background()); err != nil {

@@ -16,18 +16,20 @@ import (
 type OrderService struct {
 	orderRepo ports.OrderRepository
 	tradeRepo ports.TradeRepository
+	outboxRepo ports.OutboxRepository
 	store     *db.Store
 	book      *domain.OrderBook
 	cache     ports.OrderBookCache
 }
 
-func NewOrderService(store *db.Store, orderRepo ports.OrderRepository, tradeRepo ports.TradeRepository, book *domain.OrderBook, cache ports.OrderBookCache) *OrderService {
+func NewOrderService(store *db.Store, orderRepo ports.OrderRepository, tradeRepo ports.TradeRepository, outboxRepo ports.OutboxRepository, book *domain.OrderBook, cache ports.OrderBookCache) *OrderService {
 	return &OrderService{
-		store:     store,
-		orderRepo: orderRepo,
-		tradeRepo: tradeRepo,
-		book:      book,
-		cache:     cache,
+		store:      store,
+		orderRepo:  orderRepo,
+		tradeRepo:  tradeRepo,
+		outboxRepo: outboxRepo,
+		book:       book,
+		cache:      cache,
 	}
 }
 
@@ -43,10 +45,28 @@ func (s *OrderService) PlaceOrder(ctx context.Context, order *domain.Order) ([]d
 			if err := s.tradeRepo.Create(ctx, q, &trades[i]); err != nil {
 				return err
 			}
+
+			payload, err := json.Marshal(trades[i])
+			if err != nil {
+				return fmt.Errorf("marshal trade event: %w", err)
+			}
+
+			event := &domain.OutboxEvent{
+				ID:      uuid.New(),
+				Type:    "TradeExecuted",
+				Payload: payload,
+			}
+			if err := s.outboxRepo.AddEvent(ctx, q, event); err != nil {
+				return err
+			}
 		}
 
 		return nil
 	})
+
+	if err != nil {
+		return nil, err
+	}
 
 	if err := s.cache.Invalidate(ctx); err != nil {
 		log.Printf("cache invalidate failed after PlaceOrder: %v", err)

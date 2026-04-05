@@ -11,12 +11,15 @@ import (
 )
 
 type Querier interface {
+	AddOutboxEvent(ctx context.Context, arg AddOutboxEventParams) error
 	CancelOrder(ctx context.Context, id uuid.UUID) error
 	CreateOrder(ctx context.Context, arg CreateOrderParams) (Order, error)
 	CreateTrade(ctx context.Context, arg CreateTradeParams) (uuid.UUID, error)
+	FetchUnprocessedEvents(ctx context.Context, limit int32) ([]Outbox, error)
 	GetOrder(ctx context.Context, id uuid.UUID) (Order, error)
 	GetRecentTrades(ctx context.Context, limit int32) ([]Trade, error)
 	ListActiveOrdersBySide(ctx context.Context, side OrderSide) ([]Order, error)
+	MarkEventProcessed(ctx context.Context, id uuid.UUID) error
 	UpdateOrderQuantity(ctx context.Context, arg UpdateOrderQuantityParams) (Order, error)
 }
 

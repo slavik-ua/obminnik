@@ -64,6 +64,14 @@ type Order struct {
 	CreatedAt         pgtype.Timestamp `json:"created_at"`
 }
 
+type Outbox struct {
+	ID          uuid.UUID        `json:"id"`
+	Type        string           `json:"type"`
+	Payload     []byte           `json:"payload"`
+	CreatedAt   pgtype.Timestamp `json:"created_at"`
+	ProcessedAt pgtype.Timestamp `json:"processed_at"`
+}
+
 type Trade struct {
 	ID             uuid.UUID        `json:"id"`
 	BuyerOrderID   uuid.UUID        `json:"buyer_order_id"`

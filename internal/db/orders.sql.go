@@ -12,7 +12,9 @@ import (
 )
 
 const cancelOrder = `-- name: CancelOrder :exec
-DELETE FROM orders WHERE id = $1
+UPDATE orders
+SET remaining_quantity = 0
+WHERE id = $1
 `
 
 func (q *Queries) CancelOrder(ctx context.Context, id uuid.UUID) error {
