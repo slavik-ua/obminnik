@@ -44,8 +44,8 @@ func NewOrderBook() *OrderBook {
 }
 
 func (ob *OrderBook) Snapshot() OrderBookSnapshot {
-	ob.mu.Lock()
-	defer ob.mu.Unlock()
+	ob.mu.RLock()
+	defer ob.mu.RUnlock()
 
 	snap := OrderBookSnapshot{
 		Bids: make([]PriceLevelSnapshot, len(ob.BidsIndex)),

@@ -48,6 +48,10 @@ func (s *OrderService) PlaceOrder(ctx context.Context, order *domain.Order) ([]d
 		return nil
 	})
 
+	if err := s.cache.Invalidate(ctx); err != nil {
+		log.Printf("cache invalidate failed after PlaceOrder: %v", err)
+	}
+
 	return trades, err
 }
 
@@ -57,9 +61,19 @@ func (s *OrderService) CancelOrder(ctx context.Context, id uuid.UUID) error {
 		return fmt.Errorf("order not found: %s", id)
 	}
 
-	return s.store.ExecTx(ctx, func(q *db.Queries) error {
+	err := s.store.ExecTx(ctx, func(q *db.Queries) error {
 		return s.orderRepo.Cancel(ctx, q, id)
 	})
+
+	if err != nil {
+		return err
+	}
+
+	if err := s.cache.Invalidate(ctx); err != nil {
+		log.Printf("cache invalidation failed after CancelOrder: %v", err)
+	}
+
+	return nil
 }
 
 func (s *OrderService) GetOrderBook(ctx context.Context) ([]byte, error) {

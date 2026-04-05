@@ -9,7 +9,7 @@ import (
 )
 
 const orderBookKey = "orderbook:l2"
-const orderBookTTL = 10 * time.Second
+const orderBookTTL = 60 * time.Second
 
 type OrderBookRedisCache struct {
 	client *redis.Client
@@ -33,4 +33,8 @@ func (r *OrderBookRedisCache) Get(ctx context.Context) ([]byte, bool, error) {
 
 func (r *OrderBookRedisCache) Set(ctx context.Context, data []byte) error {
 	return r.client.Set(ctx, orderBookKey, data, orderBookTTL).Err()
+}
+
+func (r *OrderBookRedisCache) Invalidate(ctx context.Context) error {
+	return r.client.Del(ctx, orderBookKey).Err()
 }
