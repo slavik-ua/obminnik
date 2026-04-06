@@ -15,9 +15,11 @@ type Querier interface {
 	CancelOrder(ctx context.Context, id uuid.UUID) error
 	CreateOrder(ctx context.Context, arg CreateOrderParams) (Order, error)
 	CreateTrade(ctx context.Context, arg CreateTradeParams) (uuid.UUID, error)
+	CreateUser(ctx context.Context, arg CreateUserParams) error
 	FetchUnprocessedEvents(ctx context.Context, limit int32) ([]Outbox, error)
 	GetOrder(ctx context.Context, id uuid.UUID) (Order, error)
 	GetRecentTrades(ctx context.Context, limit int32) ([]Trade, error)
+	GetUserByEmail(ctx context.Context, email string) (User, error)
 	ListActiveOrdersBySide(ctx context.Context, side OrderSide) ([]Order, error)
 	MarkEventProcessed(ctx context.Context, id uuid.UUID) error
 	UpdateOrderQuantity(ctx context.Context, arg UpdateOrderQuantityParams) (Order, error)

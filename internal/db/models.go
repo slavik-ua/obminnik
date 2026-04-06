@@ -82,3 +82,10 @@ type Trade struct {
 	Quantity       int64            `json:"quantity"`
 	ExecutedAt     pgtype.Timestamp `json:"executed_at"`
 }
+
+type User struct {
+	ID           uuid.UUID        `json:"id"`
+	Email        string           `json:"email"`
+	PasswordHash string           `json:"password_hash"`
+	CreatedAt    pgtype.Timestamp `json:"created_at"`
+}

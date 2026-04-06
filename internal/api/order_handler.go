@@ -62,8 +62,15 @@ func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	userID, ok := r.Context().Value(UserIDKey).(uuid.UUID)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	newOrder := domain.Order{
 		ID:                uuid.New(),
+		UserID:            userID,
 		Price:             req.Price,
 		Quantity:          req.Quantity,
 		RemainingQuantity: req.Quantity,

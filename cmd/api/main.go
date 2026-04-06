@@ -10,15 +10,16 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 	goredis "github.com/redis/go-redis/v9"
 
-	"simple-orderbook/internal/adapters/repository"
 	"simple-orderbook/internal/adapters/redis"
 	"simple-orderbook/internal/adapters/kafka"
+	"simple-orderbook/internal/adapters/repository"
+	"simple-orderbook/internal/api"
 	"simple-orderbook/internal/core/domain"
 	"simple-orderbook/internal/core/services"
-	"simple-orderbook/internal/api"
 	"simple-orderbook/internal/database"
 	"simple-orderbook/internal/db"
 )
@@ -69,12 +70,29 @@ func main() {
 		log.Fatalf("failed to rebuild order book: %v", err)
 	}
 
+	jwtSecret := os.Getenv("JWT_SECRET")
+	jwtTTL := 15 * time.Minute
+
+	authRepo := repository.NewPostgresAuthRepository(store)
+	authService := services.NewAuthService(authRepo, []byte(jwtSecret), jwtTTL)
+	authHandler := api.NewAuthHandler(authService)
+
 	mux := http.NewServeMux()
 
-	finalHandler := api.RateLimitMiddleware(limiter, api.IPKey)(http.HandlerFunc(handler.CreateOrder))
-	mux.Handle("POST /order", finalHandler)
+	// finalHandler := api.RateLimitMiddleware(limiter, api.IPKey)(http.HandlerFunc(handler.CreateOrder))
 
-	mux.Handle("GET /orderbook", api.RateLimitMiddleware(limiter, api.IPKey)(http.HandlerFunc(handler.GetOrderBook)))
+	mux.HandleFunc("POST /register", authHandler.Register)
+	mux.HandleFunc("POST /login", authHandler.Login)
+
+	protected := api.JWTMiddleware(jwtSecret)
+	limited := api.RateLimitMiddleware(limiter, func(r *http.Request) string {
+		id, _ := r.Context().Value(api.UserIDKey).(uuid.UUID)
+		return id.String()
+	})
+
+	mux.Handle("POST /order", protected(limited(http.HandlerFunc(handler.CreateOrder))))
+	mux.Handle("GET /orderbook", protected(limited(http.HandlerFunc(handler.GetOrderBook))))
+	// mux.Handle("GET /orderbook", api.RateLimitMiddleware(limiter, api.IPKey)(http.HandlerFunc(handler.GetOrderBook)))
 
 	server := &http.Server{
 		Addr:    ":8000",
