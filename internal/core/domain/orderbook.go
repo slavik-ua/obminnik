@@ -31,8 +31,8 @@ type OrderBookSnapshot struct {
 }
 
 type PriceLevelSnapshot struct {
-	Price    int64 `json: "price"`
-	TotalVol int64 `json: "total_vol"`
+	Price    int64 `json:"price"`
+	TotalVol int64 `json:"total_vol"`
 }
 
 func NewOrderBook() *OrderBook {

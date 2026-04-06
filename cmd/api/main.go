@@ -130,7 +130,7 @@ func run() error {
 	})
 
 	g.Go(func() error {
-		log.Println("Starting server on %s", cfg.Port)
+		log.Printf("Starting server on %s", cfg.Port)
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			return err
 		}
