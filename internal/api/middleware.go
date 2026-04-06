@@ -35,11 +35,13 @@ func RateLimitMiddleware(limiter ports.RateLimiter, keyFn func(*http.Request) st
 }
 
 func IPKey(r *http.Request) string {
-	if ip := r.Header.Get("X-Forwarded-For"); ip != "" {
-		return ip
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		parts := strings.Split(xff, ",")
+		return strings.TrimSpace(parts[0])
 	}
-	if ip := r.Header.Get("X-Real-IP"); ip != "" {
-		return ip
+
+	if realIP := r.Header.Get("X-Real-IP"); realIP != "" {
+		return realIP
 	}
 
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
