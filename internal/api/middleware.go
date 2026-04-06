@@ -1,16 +1,16 @@
 package api
 
 import (
+	"context"
+	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"strings"
-	"fmt"
-	"log"
-	"context"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	
+
 	"simple-orderbook/internal/core/ports"
 )
 
@@ -46,6 +46,7 @@ func IPKey(r *http.Request) string {
 }
 
 type contextKey string
+
 const UserIDKey contextKey = "userID"
 
 func JWTMiddleware(secret string) func(http.Handler) http.Handler {

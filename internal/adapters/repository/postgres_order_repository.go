@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	
+
 	"simple-orderbook/internal/core/domain"
 	"simple-orderbook/internal/db"
 )

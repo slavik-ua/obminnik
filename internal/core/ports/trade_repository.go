@@ -3,8 +3,8 @@ package ports
 import (
 	"context"
 
-	"simple-orderbook/internal/db"
 	"simple-orderbook/internal/core/domain"
+	"simple-orderbook/internal/db"
 )
 
 type TradeRepository interface {

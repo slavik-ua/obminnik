@@ -5,8 +5,8 @@ import (
 	"errors"
 
 	"github.com/jackc/pgx"
-	"simple-orderbook/internal/db"
 	"simple-orderbook/internal/core/domain"
+	"simple-orderbook/internal/db"
 )
 
 type PostgresTradeRepository struct {

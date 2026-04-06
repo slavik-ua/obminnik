@@ -2,14 +2,14 @@ package api
 
 import (
 	"context"
-	"strings"
-	"errors"
 	"encoding/json"
+	"errors"
 	"simple-orderbook/internal/core/domain"
+	"strings"
 
-	"testing"
 	"net/http"
 	"net/http/httptest"
+	"testing"
 )
 
 type MockOrderRepository struct {
@@ -21,18 +21,18 @@ func (m *MockOrderRepository) Create(ctx context.Context, order *domain.Order) e
 }
 
 func TestCreateOrder(t *testing.T) {
-	cases := []struct{
-		name          string
-		input         string
-		price         int64
-		quantity      int64
-		side          domain.OrderSide
-		mockRepoErr   error
-		expectedCode  int
+	cases := []struct {
+		name         string
+		input        string
+		price        int64
+		quantity     int64
+		side         domain.OrderSide
+		mockRepoErr  error
+		expectedCode int
 	}{
 		{
-			name:        "NegativeQuantity",
-			input:       `{"price": 100, "quantity": -5, "side": "BUY"}`,
+			name:         "NegativeQuantity",
+			input:        `{"price": 100, "quantity": -5, "side": "BUY"}`,
 			expectedCode: http.StatusBadRequest,
 		},
 		{

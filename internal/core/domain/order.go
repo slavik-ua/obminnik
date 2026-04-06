@@ -1,10 +1,10 @@
 package domain
 
 import (
-	"strings"
 	"bytes"
-	"errors"
 	"encoding/json"
+	"errors"
+	"strings"
 
 	"github.com/google/uuid"
 )
@@ -66,9 +66,9 @@ type Order struct {
 	Status            OrderStatus `json:"status"`
 
 	// internal doubly-linked list pointers
-	parent            *PriceLevel
-	next              *Order
-	prev              *Order
+	parent *PriceLevel
+	next   *Order
+	prev   *Order
 }
 
 // Trade records a single matched execution between a taker and a maker order
@@ -78,7 +78,7 @@ type Trade struct {
 	Quantity     int64     `json:"quantity"`
 	TakerOrderID uuid.UUID `json:"taker_order_id"`
 	MakerOrderID uuid.UUID `json:"maker_order_id"`
-	
-	TakerUserID  uuid.UUID `json:"taker_user_id"`
-	MakerUserID  uuid.UUID `json:"maker_user_id"`
+
+	TakerUserID uuid.UUID `json:"taker_user_id"`
+	MakerUserID uuid.UUID `json:"maker_user_id"`
 }

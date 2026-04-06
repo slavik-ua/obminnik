@@ -1,9 +1,9 @@
 package domain
 
 import (
-	"sync"
-	"slices"
 	"cmp"
+	"slices"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -65,7 +65,7 @@ func (ob *OrderBook) Snapshot() OrderBookSnapshot {
 // PlaceOrder is the single entry point for submitting a limit order
 // It matches against the opposite side first, then rests any unfilled
 // remainder on the book
-// 
+//
 // trades is a caller-owned buffer used to collect fills. Pass a non-nil
 // slice to reuse its backing array across calls and avoid per-call heap
 // allocations. The slice is reset to length 0 on entry. The returned slice
@@ -268,7 +268,7 @@ func (ob *OrderBook) sideData(side OrderSide) (map[int64]*PriceLevel, *[]int64, 
 }
 
 func min(a, b int64) int64 {
-	if (a < b) {
+	if a < b {
 		return a
 	}
 	return b

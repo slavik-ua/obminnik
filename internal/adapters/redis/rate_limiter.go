@@ -25,7 +25,7 @@ type FixedWindowRateLimiter struct {
 func NewFixedWindowRateLimiter(client *redis.Client, limit int, window time.Duration) *FixedWindowRateLimiter {
 	return &FixedWindowRateLimiter{
 		client: client,
-		limit: limit,
+		limit:  limit,
 		window: window,
 	}
 }

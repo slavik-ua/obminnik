@@ -2,11 +2,11 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
+	"log"
 	"math"
 	"net/http"
 	"time"
-	"log"
-	"fmt"
 
 	"github.com/google/uuid"
 	"simple-orderbook/internal/core/domain"

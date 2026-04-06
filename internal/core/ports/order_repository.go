@@ -5,8 +5,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"simple-orderbook/internal/db"
 	"simple-orderbook/internal/core/domain"
+	"simple-orderbook/internal/db"
 )
 
 type OrderRepository interface {

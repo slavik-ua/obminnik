@@ -16,7 +16,7 @@ type OutboxRelay struct {
 func NewOutboxRelay(outboxRepo ports.OutboxRepository, publisher ports.EventPublisher) *OutboxRelay {
 	return &OutboxRelay{
 		outboxRepo: outboxRepo,
-		publisher: publisher,
+		publisher:  publisher,
 	}
 }
 

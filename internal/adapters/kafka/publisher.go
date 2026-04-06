@@ -16,13 +16,13 @@ type KafkaPublisher struct {
 func NewKafkaPublisher(brokerAddr string) *KafkaPublisher {
 	return &KafkaPublisher{
 		writer: &kafka.Writer{
-			Addr:     kafka.TCP(brokerAddr),
-			Balancer: &kafka.LeastBytes{},
+			Addr:         kafka.TCP(brokerAddr),
+			Balancer:     &kafka.LeastBytes{},
 			RequiredAcks: kafka.RequireAll, // Ensure all replicas acknowledge
-			MaxAttempts: 5,
+			MaxAttempts:  5,
 			WriteTimeout: 10 * time.Second,
-			ReadTimeout: 10 * time.Second,
-			Compression: kafka.Snappy,
+			ReadTimeout:  10 * time.Second,
+			Compression:  kafka.Snappy,
 		},
 	}
 }
@@ -32,7 +32,7 @@ func (p *KafkaPublisher) Publish(ctx context.Context, event *domain.OutboxEvent)
 		Topic: event.Type,
 		Key:   []byte(event.ID.String()),
 		Value: event.Payload,
-		Time: event.CreatedAt,
+		Time:  event.CreatedAt,
 	})
 }
 

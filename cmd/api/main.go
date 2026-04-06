@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 	"errors"
-	"log"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -16,8 +16,8 @@ import (
 	goredis "github.com/redis/go-redis/v9"
 	"golang.org/x/sync/errgroup"
 
-	"simple-orderbook/internal/adapters/redis"
 	"simple-orderbook/internal/adapters/kafka"
+	"simple-orderbook/internal/adapters/redis"
 	"simple-orderbook/internal/adapters/repository"
 	"simple-orderbook/internal/api"
 	"simple-orderbook/internal/core/domain"
@@ -140,7 +140,7 @@ func run() error {
 	g.Go(func() error {
 		<-gCtx.Done()
 		log.Println("Shutting down server...")
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10 * time.Second)
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		return server.Shutdown(shutdownCtx)
 	})

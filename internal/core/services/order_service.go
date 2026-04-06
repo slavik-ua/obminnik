@@ -2,24 +2,24 @@ package services
 
 import (
 	"context"
-	"fmt"
 	"encoding/json"
+	"fmt"
 	"log"
 
 	"github.com/google/uuid"
 
+	"simple-orderbook/internal/core/domain"
 	"simple-orderbook/internal/core/ports"
 	"simple-orderbook/internal/db"
-	"simple-orderbook/internal/core/domain"
 )
 
 type OrderService struct {
-	orderRepo ports.OrderRepository
-	tradeRepo ports.TradeRepository
+	orderRepo  ports.OrderRepository
+	tradeRepo  ports.TradeRepository
 	outboxRepo ports.OutboxRepository
-	store     *db.Store
-	book      *domain.OrderBook
-	cache     ports.OrderBookCache
+	store      *db.Store
+	book       *domain.OrderBook
+	cache      ports.OrderBookCache
 }
 
 func NewOrderService(store *db.Store, orderRepo ports.OrderRepository, tradeRepo ports.TradeRepository, outboxRepo ports.OutboxRepository, book *domain.OrderBook, cache ports.OrderBookCache) *OrderService {
