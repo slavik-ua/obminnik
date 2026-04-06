@@ -2,8 +2,7 @@ package api
 
 import (
 	"encoding/json"
-	"fmt"
-	"log"
+	"log/slog"
 	"math"
 	"net/http"
 	"time"
@@ -33,7 +32,7 @@ type CreateOrderRequest struct {
 func (h *OrderHandler) GetOrderBook(w http.ResponseWriter, r *http.Request) {
 	data, err := h.service.GetOrderBook(r.Context())
 	if err != nil {
-		http.Error(w, "Something went wrong", http.StatusInternalServerError)
+		WriteError(w, "about:blank", "Internal Server Error", "Could not fetch orderbook", http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -48,23 +47,23 @@ func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	dec.DisallowUnknownFields()
 
 	if err := dec.Decode(&req); err != nil {
-		http.Error(w, fmt.Sprintf("Request body too large or invalid: %v", err), http.StatusBadRequest)
+		WriteError(w, "invalid-json", "Bad Request", "Invalid JSON body", http.StatusBadRequest)
 		return
 	}
 
 	if req.Quantity <= 0 || req.Price <= 0 {
-		http.Error(w, "Price and Quantity must be positive", http.StatusBadRequest)
+		WriteError(w, "validation-error", "Invalid Values", "Price and Quantity must be positive", http.StatusBadRequest)
 		return
 	}
 
 	if req.Quantity > math.MaxInt32 {
-		http.Error(w, "Quantity is too large", http.StatusBadRequest)
+		WriteError(w, "validation-error", "Quantity Too Large", "Quantity exceeds maximum allowed", http.StatusBadRequest)
 		return
 	}
 
 	userID, ok := r.Context().Value(UserIDKey).(uuid.UUID)
 	if !ok {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		WriteError(w, "unauthorized", "Unauthorized", "User ID not found in session", http.StatusUnauthorized)
 		return
 	}
 
@@ -81,11 +80,17 @@ func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 
 	_, err := h.service.PlaceOrder(r.Context(), &newOrder)
 	if err != nil {
-		http.Error(w, "Something went wrong", http.StatusInternalServerError)
+		slog.Error("failed to place order", "error", err, "user_id", userID)
+		WriteError(w, "internal-error", "Placement Failed", "Order could not be processed", http.StatusInternalServerError)
 		return
 	}
 
-	log.Printf("NEW ORDER: ID: %s, PRICE: %d, SIDE: %d", newOrder.ID, newOrder.Price, newOrder.Side)
+	slog.Info("order created",
+		"id", newOrder.ID,
+		"price", newOrder.Price,
+		"side", newOrder.Side,
+		"user_id", userID,
+	)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)

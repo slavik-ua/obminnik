@@ -15,6 +15,7 @@ import (
 )
 
 var ErrInvalidCredentials = errors.New("invalid email or password")
+var ErrUserAlreadyExists = errors.New("user already exists")
 
 type AuthService struct {
 	repo      ports.AuthRepository

@@ -3,7 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"strings"
@@ -14,15 +14,19 @@ import (
 	"simple-orderbook/internal/core/ports"
 )
 
+type contextKey string
+
+const UserIDKey contextKey = "userID"
+
 func RateLimitMiddleware(limiter ports.RateLimiter, keyFn func(*http.Request) string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			allowed, err := limiter.Allow(r.Context(), keyFn(r))
+			key := keyFn(r)
+			allowed, err := limiter.Allow(r.Context(), key)
 			if err != nil {
-				log.Printf("rate limiter error: %v", err)
-			}
-			if !allowed {
-				http.Error(w, "Too many requests", http.StatusTooManyRequests)
+				slog.Error("rate limiter check failed", "error", err, "key", key)
+			} else if !allowed {
+				WriteError(w, "rate-limit-exceeded", "Too many requests", "You have exceeded your request quota", http.StatusTooManyRequests)
 				return
 			}
 			next.ServeHTTP(w, r)
@@ -45,45 +49,38 @@ func IPKey(r *http.Request) string {
 	return host
 }
 
-type contextKey string
-
-const UserIDKey contextKey = "userID"
-
 func JWTMiddleware(secret string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
-				http.Error(w, "missing token", http.StatusUnauthorized)
+				WriteError(w, "missing-token", "Unauthorized", "Authentication token is missing", http.StatusUnauthorized)
 				return
 			}
 
 			tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
 			token, err := jwt.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
 				if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-					return nil, fmt.Errorf("unexpected signing method")
+					return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
 				}
 				return []byte(secret), nil
 			})
 			if err != nil || !token.Valid {
-				http.Error(w, "invalid token", http.StatusUnauthorized)
+				slog.Warn("invalid jwt attempt", "error", err, "ip", IPKey(r))
+				WriteError(w, "invalid-token", "Unauthorized", "Your session has expired or is invalid", http.StatusUnauthorized)
 				return
 			}
 
 			claims, ok := token.Claims.(jwt.MapClaims)
 			if !ok {
-				http.Error(w, "invalid token claims", http.StatusUnauthorized)
+				WriteError(w, "invalid-subject", "Unauthorized", "Token subject is not a valid UUID", http.StatusUnauthorized)
 				return
 			}
 
 			sub, ok := claims["sub"].(string)
-			if !ok {
-				http.Error(w, "invalid token subject", http.StatusUnauthorized)
-				return
-			}
 			userID, err := uuid.Parse(sub)
 			if err != nil {
-				http.Error(w, "invalid token subject", http.StatusUnauthorized)
+				WriteError(w, "invalid-subject", "Unauthorized", "Token subject is not a valid UUID", http.StatusUnauthorized)
 				return
 			}
 
