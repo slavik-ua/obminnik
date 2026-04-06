@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -124,13 +124,13 @@ func run() error {
 	g, gCtx := errgroup.WithContext(ctx)
 
 	g.Go(func() error {
-		log.Println("Starting outbox relay")
+		slog.Info("Starting outbox relay")
 		relay.Run(gCtx)
 		return nil
 	})
 
 	g.Go(func() error {
-		log.Printf("Starting server on %s", cfg.Port)
+		slog.Info("Starting server on %s", cfg.Port)
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			return err
 		}
@@ -139,7 +139,7 @@ func run() error {
 
 	g.Go(func() error {
 		<-gCtx.Done()
-		log.Println("Shutting down server...")
+		slog.Info("Shutting down server...")
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		return server.Shutdown(shutdownCtx)

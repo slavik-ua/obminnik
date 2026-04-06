@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 
 	"github.com/google/uuid"
 
@@ -69,7 +69,10 @@ func (s *OrderService) PlaceOrder(ctx context.Context, order *domain.Order) ([]d
 	}
 
 	if err := s.cache.Invalidate(ctx); err != nil {
-		log.Printf("cache invalidate failed after PlaceOrder: %v", err)
+		slog.Warn("cache invalidation failed after order placement",
+			"error", err,
+			"order_id", order.ID,
+		)
 	}
 
 	return trades, err
@@ -90,7 +93,10 @@ func (s *OrderService) CancelOrder(ctx context.Context, id uuid.UUID) error {
 	}
 
 	if err := s.cache.Invalidate(ctx); err != nil {
-		log.Printf("cache invalidation failed after CancelOrder: %v", err)
+		slog.Warn("cache invalidation failed after cancel",
+			"error", err,
+			"order_id", id,
+		)
 	}
 
 	return nil
@@ -100,7 +106,7 @@ func (s *OrderService) GetOrderBook(ctx context.Context) ([]byte, error) {
 	data, found, err := s.cache.Get(ctx)
 	if err != nil {
 		// fail-open
-		log.Printf("cache got error: %v", err)
+		slog.Warn("ordebook cache get failed, falling back to memory", "error", err)
 	}
 	if found {
 		return data, nil
@@ -113,13 +119,14 @@ func (s *OrderService) GetOrderBook(ctx context.Context) ([]byte, error) {
 	}
 
 	if err := s.cache.Set(ctx, data); err != nil {
-		log.Printf("cache set error: %v", err)
+		slog.Warn("orderbook cache set failed", "error", err)
 	}
 
 	return data, nil
 }
 
 func (s *OrderService) RebuildOrderBook(ctx context.Context) error {
+	slog.Info("rebuilding order book from database")
 	for _, side := range []db.OrderSide{db.OrderSideBUY, db.OrderSideSELL} {
 		orders, err := s.orderRepo.ListActiveBySide(ctx, side)
 		if err != nil {
@@ -129,6 +136,6 @@ func (s *OrderService) RebuildOrderBook(ctx context.Context) error {
 			s.book.RestoreOrder(o)
 		}
 	}
-
+	slog.Info("order book rebuild complete")
 	return nil
 }

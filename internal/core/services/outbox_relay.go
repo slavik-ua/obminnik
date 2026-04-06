@@ -2,7 +2,7 @@ package services
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"time"
 
 	"simple-orderbook/internal/core/ports"
@@ -21,6 +21,7 @@ func NewOutboxRelay(outboxRepo ports.OutboxRepository, publisher ports.EventPubl
 }
 
 func (r *OutboxRelay) Run(ctx context.Context) {
+	slog.Info("outbox relay started")
 	for {
 		err := r.process(ctx)
 		backoff := 100 * time.Millisecond
@@ -30,7 +31,7 @@ func (r *OutboxRelay) Run(ctx context.Context) {
 
 		select {
 		case <-ctx.Done():
-			log.Println("outbox relay shutting down")
+			slog.Info("outbox relay shutting down")
 			return
 		case <-time.After(backoff):
 		}
@@ -40,18 +41,24 @@ func (r *OutboxRelay) Run(ctx context.Context) {
 func (r *OutboxRelay) process(ctx context.Context) error {
 	events, err := r.outboxRepo.FetchUnprocessed(ctx, 10)
 	if err != nil {
-		log.Printf("outbox relay: fetch failed: %v", err)
+		slog.Error("outbox relay: fetch failed", "error", err)
 		return err
 	}
 
 	for _, event := range events {
 		if err := r.publisher.Publish(ctx, event); err != nil {
-			log.Printf("outbox relay: publish failed for event %s: %v", event.ID, err)
+			slog.Error("outbox relay: publish failed",
+				"event_id", event.ID,
+				"error", err,
+			)
 			continue
 		}
 
 		if err := r.outboxRepo.MarkProcessed(ctx, event.ID); err != nil {
-			log.Printf("outbox relay: mark processed failed for event %s: %v", event.ID, err)
+			slog.Error("outbox relay: mark processed failed",
+				"event_id", event.ID,
+				"error", err,
+			)
 		}
 	}
 
