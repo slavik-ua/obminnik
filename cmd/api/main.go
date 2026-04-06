@@ -15,6 +15,7 @@ import (
 
 	"simple-orderbook/internal/adapters/repository"
 	"simple-orderbook/internal/adapters/redis"
+	"simple-orderbook/internal/adapters/kafka"
 	"simple-orderbook/internal/core/domain"
 	"simple-orderbook/internal/core/services"
 	"simple-orderbook/internal/api"
@@ -44,6 +45,13 @@ func main() {
 	orderRepo := repository.NewPostgresOrderRepository(store)
 	tradeRepo := repository.NewPostgresTradeRepository(store)
 	outboxRepo := repository.NewPostgresOutboxRepository(store)
+
+	publisher := kafka.NewKafkaPublisher(os.Getenv("KAFKA_ADDR"))
+	relay := services.NewOutboxRelay(outboxRepo, publisher)
+
+	relayCtx, relayCancel := context.WithCancel(context.Background())
+	defer relayCancel()
+	go relay.Run(relayCtx)
 
 	redisClient := goredis.NewClient(&goredis.Options{
 		Addr: os.Getenv("REDIS_URL"),
