@@ -4,103 +4,117 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"simple-orderbook/internal/core/domain"
-	"strings"
-
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+
+	"github.com/google/uuid"
+	"simple-orderbook/internal/core/domain"
 )
 
-type MockOrderRepository struct {
-	CreateFunc func(ctx context.Context, order *domain.Order) error
+type MockOrderService struct {
+	PlaceOrderFunc func(ctx context.Context, order *domain.Order) ([]domain.Trade, error)
 }
 
-func (m *MockOrderRepository) Create(ctx context.Context, order *domain.Order) error {
-	return m.CreateFunc(ctx, order)
+func (m *MockOrderService) PlaceOrder(ctx context.Context, order *domain.Order) ([]domain.Trade, error) {
+	return m.PlaceOrderFunc(ctx, order)
 }
+
+func (m *MockOrderService) CancelOrder(ctx context.Context, id uuid.UUID) error { return nil }
+func (m *MockOrderService) GetOrderBook(ctx context.Context) ([]byte, error)    { return nil, nil }
+func (m *MockOrderService) RebuildOrderBook(ctx context.Context) error          { return nil }
 
 func TestCreateOrder(t *testing.T) {
+	testUserID := uuid.New()
+
 	cases := []struct {
-		name         string
-		input        string
-		price        int64
-		quantity     int64
-		side         domain.OrderSide
-		mockRepoErr  error
-		expectedCode int
+		name           string
+		input          string
+		withAuth       bool
+		mockServiceErr error
+		expectedCode   int
+		expectedType   string
 	}{
 		{
+			name:         "Unathorized_MissingContextID",
+			input:        `{"price": 100, "quantity": 10, "side": "buy"}`,
+			withAuth:     false,
+			expectedCode: http.StatusUnauthorized,
+			expectedType: "unauthorized",
+		},
+		{
+			name:         "InvalidJSON",
+			input:        `{"price": "high", "quantity": 10}`,
+			withAuth:     true,
+			expectedCode: http.StatusBadRequest,
+			expectedType: "invalid-json",
+		},
+		{
 			name:         "NegativeQuantity",
-			input:        `{"price": 100, "quantity": -5, "side": "BUY"}`,
+			input:        `{"price": 100, "quantity": -5, "side": "buy"}`,
+			withAuth:     true,
 			expectedCode: http.StatusBadRequest,
+			expectedType: "validation-error",
 		},
 		{
-			name:         "NegativePrice",
-			input:        `{"price": -100, "quantity": 10, "side": "BUY"}`,
-			expectedCode: http.StatusBadRequest,
-		},
-		{
-			name:         "WrongSide",
-			input:        `{"price": 100, "quantity": 10, "side": "asd"}`,
-			expectedCode: http.StatusBadRequest,
-		},
-		{
-			name:         "DatabaseFailure",
-			input:        `{"price": 100, "quantity": 10, "side": "BUY"}`,
-			mockRepoErr:  errors.New("connection refused"),
-			expectedCode: http.StatusInternalServerError,
+			name:           "ServiceFailure",
+			input:          `{"price": 100, "quantity": 10, "side": "buy"}`,
+			withAuth:       true,
+			mockServiceErr: errors.New("db down"),
+			expectedCode:   http.StatusInternalServerError,
+			expectedType:   "internal-error",
 		},
 		{
 			name:         "ValidOrder",
-			input:        `{"price": 100, "quantity": 10, "side": "BUY"}`,
-			price:        100,
-			quantity:     10,
-			side:         domain.SideBuy,
-			mockRepoErr:  nil,
+			input:        `{"price": 100, "quantity": 10, "side": "buy"}`,
+			withAuth:     true,
 			expectedCode: http.StatusCreated,
 		},
 	}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			mockRepo := &MockOrderRepository{
-				CreateFunc: func(ctx context.Context, order *domain.Order) error {
-					return c.mockRepoErr
+			mockSvc := &MockOrderService{
+				PlaceOrderFunc: func(ctx context.Context, order *domain.Order) ([]domain.Trade, error) {
+					return nil, c.mockServiceErr
 				},
 			}
 
 			req := httptest.NewRequest("POST", "/order", strings.NewReader(c.input))
 			req.Header.Set("Content-Type", "application/json")
-			rr := httptest.NewRecorder()
 
-			handler := NewOrderHandler(mockRepo)
+			if c.withAuth {
+				ctx := context.WithValue(req.Context(), UserIDKey, testUserID)
+				req = req.WithContext(ctx)
+			}
+
+			rr := httptest.NewRecorder()
+			handler := NewOrderHandler(mockSvc)
+
 			handler.CreateOrder(rr, req)
 
 			if rr.Code != c.expectedCode {
 				t.Errorf("wrong status code: got %v want %v", rr.Code, c.expectedCode)
 			}
 
+			if rr.Code >= 400 {
+				var apiErr APIError
+				if err := json.Unmarshal(rr.Body.Bytes(), &apiErr); err != nil {
+					t.Fatalf("failed to unmarshal error response: %v", err)
+				}
+				if apiErr.Type != c.expectedType {
+					t.Errorf("wrong error type: got %q want %q", apiErr.Type, c.expectedType)
+				}
+			}
+
 			if rr.Code == http.StatusCreated {
 				var createdOrder domain.Order
-
-				dec := json.NewDecoder(rr.Body)
-				dec.DisallowUnknownFields()
-
-				if err := dec.Decode(&createdOrder); err != nil {
-					t.Errorf("error decoding: %v", err)
+				if err := json.Unmarshal(rr.Body.Bytes(), &createdOrder); err != nil {
+					t.Fatalf("failed to decode success reposponse: %v", err)
 				}
-
-				if createdOrder.Price != c.price {
-					t.Errorf("wrong price: got %v, want %v", createdOrder.Price, c.price)
-				}
-
-				if createdOrder.Quantity != c.quantity {
-					t.Errorf("wrong quantity: got %v, want %v", createdOrder.Quantity, c.quantity)
-				}
-
-				if createdOrder.Side != c.side {
-					t.Errorf("wrong side: got %v, want %v", createdOrder.Side, c.side)
+				if createdOrder.UserID != testUserID {
+					t.Errorf("order has wrong userID: got %v, want %v", createdOrder.UserID, testUserID)
 				}
 			}
 		})

@@ -130,7 +130,7 @@ func run() error {
 	})
 
 	g.Go(func() error {
-		slog.Info("Starting server on %s", cfg.Port)
+		slog.Info("Starting server", "port", cfg.Port)
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			return err
 		}
