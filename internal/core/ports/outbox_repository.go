@@ -12,4 +12,5 @@ type OutboxRepository interface {
 	AddEvent(ctx context.Context, q *db.Queries, event *domain.OutboxEvent) error
 	FetchUnprocessed(ctx context.Context, limit int32) ([]*domain.OutboxEvent, error)
 	MarkProcessed(ctx context.Context, id uuid.UUID) error
+	MarkProcessedBatch(ctx context.Context, ids []uuid.UUID) error
 }

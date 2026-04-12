@@ -64,6 +64,28 @@ func toDomainSide(side db.OrderSide) (domain.OrderSide, error) {
 	}
 }
 
+func mapStatusToDB(status domain.OrderStatus) db.OrderStatus {
+	switch status {
+	case domain.StatusPlaced:
+		return db.OrderStatusPLACED
+	case domain.StatusPartial:
+		return db.OrderStatusPARTIAL
+	case domain.StatusFilled:
+		return db.OrderStatusFILLED
+	case domain.StatusCancelled:
+		return db.OrderStatusCANCELLED
+	default:
+		return db.OrderStatusNEW
+	}
+}
+
+func (r *PostgresOrderRepository) UpdateStatus(ctx context.Context, q *db.Queries, id uuid.UUID, status domain.OrderStatus) error {
+	return q.UpdateOrderStatus(ctx, db.UpdateOrderStatusParams{
+		ID:     id,
+		Status: mapStatusToDB(status),
+	})
+}
+
 func (r *PostgresOrderRepository) ListActiveBySide(ctx context.Context, side db.OrderSide) ([]*domain.Order, error) {
 	rows, err := r.store.ListActiveOrdersBySide(ctx, side)
 	if err != nil {

@@ -47,3 +47,10 @@ func (r *PostgresOutboxRepository) FetchUnprocessed(ctx context.Context, limit i
 func (r *PostgresOutboxRepository) MarkProcessed(ctx context.Context, id uuid.UUID) error {
 	return r.store.MarkEventProcessed(ctx, id)
 }
+
+func (r *PostgresOutboxRepository) MarkProcessedBatch(ctx context.Context, ids []uuid.UUID) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	return r.store.MarkEventsProcessedBatch(ctx, ids)
+}

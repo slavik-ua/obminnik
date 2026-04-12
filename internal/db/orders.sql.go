@@ -13,8 +13,8 @@ import (
 
 const cancelOrder = `-- name: CancelOrder :exec
 UPDATE orders
-SET remaining_quantity = 0
-WHERE id = $1
+SET status = 'CANCELLED'
+WHERE id = $1 AND status IN ('NEW', 'PLACED', 'PARTIAL')
 `
 
 func (q *Queries) CancelOrder(ctx context.Context, id uuid.UUID) error {
@@ -28,7 +28,7 @@ INSERT INTO orders (
 ) VALUES (
     $1, $2, $3, $4, $5, $6
 )
-RETURNING id, user_id, price, quantity, side, remaining_quantity, created_at
+RETURNING id, user_id, price, quantity, side, remaining_quantity, status, created_at
 `
 
 type CreateOrderParams struct {
@@ -57,6 +57,7 @@ func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (Order
 		&i.Quantity,
 		&i.Side,
 		&i.RemainingQuantity,
+		&i.Status,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -68,8 +69,7 @@ INSERT INTO trades (
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7
 )
-ON CONFLICT ON CONSTRAINT trades_idempotency_key
-DO NOTHING
+ON CONFLICT (id) DO NOTHING
 RETURNING id
 `
 
@@ -99,7 +99,7 @@ func (q *Queries) CreateTrade(ctx context.Context, arg CreateTradeParams) (uuid.
 }
 
 const getOrder = `-- name: GetOrder :one
-SELECT id, user_id, price, quantity, side, remaining_quantity, created_at FROM orders
+SELECT id, user_id, price, quantity, side, remaining_quantity, status, created_at FROM orders
 WHERE id = $1 LIMIT 1
 `
 
@@ -113,6 +113,7 @@ func (q *Queries) GetOrder(ctx context.Context, id uuid.UUID) (Order, error) {
 		&i.Quantity,
 		&i.Side,
 		&i.RemainingQuantity,
+		&i.Status,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -154,7 +155,7 @@ func (q *Queries) GetRecentTrades(ctx context.Context, limit int32) ([]Trade, er
 }
 
 const listActiveOrdersBySide = `-- name: ListActiveOrdersBySide :many
-SELECT id, user_id, price, quantity, side, remaining_quantity, created_at FROM orders
+SELECT id, user_id, price, quantity, side, remaining_quantity, status, created_at FROM orders
 WHERE side = $1 and remaining_quantity > 0
 ORDER BY
     CASE WHEN $1 = 'BUY' THEN price END DESC,
@@ -178,6 +179,7 @@ func (q *Queries) ListActiveOrdersBySide(ctx context.Context, side OrderSide) ([
 			&i.Quantity,
 			&i.Side,
 			&i.RemainingQuantity,
+			&i.Status,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -192,18 +194,20 @@ func (q *Queries) ListActiveOrdersBySide(ctx context.Context, side OrderSide) ([
 
 const updateOrderQuantity = `-- name: UpdateOrderQuantity :one
 UPDATE orders
-SET remaining_quantity = $2
+SET remaining_quantity = $2,
+    status = $3
 WHERE id = $1
-RETURNING id, user_id, price, quantity, side, remaining_quantity, created_at
+RETURNING id, user_id, price, quantity, side, remaining_quantity, status, created_at
 `
 
 type UpdateOrderQuantityParams struct {
-	ID                uuid.UUID `json:"id"`
-	RemainingQuantity int64     `json:"remaining_quantity"`
+	ID                uuid.UUID   `json:"id"`
+	RemainingQuantity int64       `json:"remaining_quantity"`
+	Status            OrderStatus `json:"status"`
 }
 
 func (q *Queries) UpdateOrderQuantity(ctx context.Context, arg UpdateOrderQuantityParams) (Order, error) {
-	row := q.db.QueryRow(ctx, updateOrderQuantity, arg.ID, arg.RemainingQuantity)
+	row := q.db.QueryRow(ctx, updateOrderQuantity, arg.ID, arg.RemainingQuantity, arg.Status)
 	var i Order
 	err := row.Scan(
 		&i.ID,
@@ -212,7 +216,24 @@ func (q *Queries) UpdateOrderQuantity(ctx context.Context, arg UpdateOrderQuanti
 		&i.Quantity,
 		&i.Side,
 		&i.RemainingQuantity,
+		&i.Status,
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const updateOrderStatus = `-- name: UpdateOrderStatus :exec
+UPDATE orders
+SET status = $2
+WHERE id = $1
+`
+
+type UpdateOrderStatusParams struct {
+	ID     uuid.UUID   `json:"id"`
+	Status OrderStatus `json:"status"`
+}
+
+func (q *Queries) UpdateOrderStatus(ctx context.Context, arg UpdateOrderStatusParams) error {
+	_, err := q.db.Exec(ctx, updateOrderStatus, arg.ID, arg.Status)
+	return err
 }

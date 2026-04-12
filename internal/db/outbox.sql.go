@@ -70,3 +70,14 @@ func (q *Queries) MarkEventProcessed(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, markEventProcessed, id)
 	return err
 }
+
+const markEventsProcessedBatch = `-- name: MarkEventsProcessedBatch :exec
+UPDATE outbox
+SET processed_at = CURRENT_TIMESTAMP
+WHERE id = ANY($1::uuid[])
+`
+
+func (q *Queries) MarkEventsProcessedBatch(ctx context.Context, dollar_1 []uuid.UUID) error {
+	_, err := q.db.Exec(ctx, markEventsProcessedBatch, dollar_1)
+	return err
+}

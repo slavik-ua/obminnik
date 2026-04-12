@@ -8,7 +8,7 @@ import (
 )
 
 type OrderService interface {
-	PlaceOrder(ctx context.Context, order *domain.Order) ([]domain.Trade, error)
+	PlaceOrder(ctx context.Context, order *domain.Order) error
 	CancelOrder(ctx context.Context, id uuid.UUID) error
 	GetOrderBook(ctx context.Context) ([]byte, error)
 }

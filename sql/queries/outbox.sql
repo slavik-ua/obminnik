@@ -12,3 +12,8 @@ LIMIT $1;
 UPDATE outbox
 SET processed_at = CURRENT_TIMESTAMP
 WHERE id = $1;
+
+-- name: MarkEventsProcessedBatch :exec
+UPDATE outbox
+SET processed_at = CURRENT_TIMESTAMP
+WHERE id = ANY($1::uuid[]);

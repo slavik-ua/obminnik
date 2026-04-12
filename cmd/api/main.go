@@ -14,10 +14,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 	goredis "github.com/redis/go-redis/v9"
+	"github.com/segmentio/kafka-go"
 	"golang.org/x/sync/errgroup"
 
-	"simple-orderbook/internal/adapters/kafka"
-	"simple-orderbook/internal/adapters/redis"
+	kafka_adapter "simple-orderbook/internal/adapters/kafka"
+	redis_adapter "simple-orderbook/internal/adapters/redis"
 	"simple-orderbook/internal/adapters/repository"
 	"simple-orderbook/internal/api"
 	"simple-orderbook/internal/core/domain"
@@ -28,12 +29,14 @@ import (
 )
 
 type config struct {
-	DBURL     string
-	RedisURL  string
-	KafkaURL  string
-	JWTSecret string
-	JWTTTL    time.Duration
-	Port      string
+	DBURL        string
+	RedisURL     string
+	KafkaURL     string
+	KafkaTopic   string
+	KafkaGroupID string
+	JWTSecret    string
+	JWTTTL       time.Duration
+	Port         string
 }
 
 func getEnv(key, fallback string) string {
@@ -45,13 +48,29 @@ func getEnv(key, fallback string) string {
 
 func loadConfig() config {
 	return config{
-		DBURL:     getEnv("DB_URL", "localhost:5432"),
-		RedisURL:  getEnv("REDIS_URL", "localhost:6379"),
-		KafkaURL:  getEnv("KAFKA_URL", "localhost:9092"),
-		JWTSecret: getEnv("JWT_SECRET", "change-me"),
-		JWTTTL:    15 * time.Minute,
-		Port:      ":8000",
+		DBURL:        getEnv("DB_URL", "localhost:5432"),
+		RedisURL:     getEnv("REDIS_URL", "localhost:6379"),
+		KafkaURL:     getEnv("KAFKA_URL", "localhost:9092"),
+		KafkaTopic:   getEnv("KAFKA_TOPIC", "order.created"),
+		KafkaGroupID: getEnv("KAFKA_GROUP_ID", "order-matching-group"),
+		JWTSecret:    getEnv("JWT_SECRET", "change-me"),
+		JWTTTL:       15 * time.Minute,
+		Port:         ":8000",
 	}
+}
+
+func createTopic(ctx context.Context, brokerAddr string, topic string) error {
+	conn, err := kafka.DialContext(ctx, "tcp", brokerAddr)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	return conn.CreateTopics(kafka.TopicConfig{
+		Topic:             topic,
+		NumPartitions:     1,
+		ReplicationFactor: 1,
+	})
 }
 
 func setupRouter(orderSvc *services.OrderService, authSvc *services.AuthService, limiter ports.RateLimiter, jwtSecret string) *http.ServeMux {
@@ -98,13 +117,22 @@ func run() error {
 	authRepo := repository.NewPostgresAuthRepository(store)
 
 	orderBook := domain.NewOrderBook()
-	cache := redis.NewOrderBookRedisCache(redisClient)
-	limiter := redis.NewFixedWindowRateLimiter(redisClient, 100, time.Minute)
-	publisher := kafka.NewKafkaPublisher(cfg.KafkaURL)
+	cache := redis_adapter.NewOrderBookRedisCache(redisClient)
+	limiter := redis_adapter.NewFixedWindowRateLimiter(redisClient, 100, time.Minute)
 
-	orderSvc := services.NewOrderService(store, orderRepo, tradeRepo, outboxRepo, orderBook, cache)
+	publisher := kafka_adapter.NewKafkaWriter(cfg.KafkaURL, cfg.KafkaTopic)
+	reader := kafka_adapter.NewKafkaReader(cfg.KafkaURL, cfg.KafkaTopic, cfg.KafkaGroupID)
+
+	if err := createTopic(ctx, cfg.KafkaURL, cfg.KafkaTopic); err != nil {
+		return fmt.Errorf("failed to create kafka topic")
+	}
+
 	authSvc := services.NewAuthService(authRepo, []byte(cfg.JWTSecret), cfg.JWTTTL)
 	relay := services.NewOutboxRelay(outboxRepo, publisher)
+
+	worker := services.NewOrderWorker(reader, orderBook, cache, orderRepo, tradeRepo, store)
+
+	orderSvc := services.NewOrderService(store, orderRepo, outboxRepo, orderBook, cache, relay)
 
 	if err := orderSvc.RebuildOrderBook(ctx); err != nil {
 		return fmt.Errorf("failed to rebuild order book: %w", err)
@@ -126,6 +154,12 @@ func run() error {
 	g.Go(func() error {
 		slog.Info("Starting outbox relay")
 		relay.Run(gCtx)
+		return nil
+	})
+
+	g.Go(func() error {
+		slog.Info("Starting worker")
+		worker.Run(gCtx)
 		return nil
 	})
 

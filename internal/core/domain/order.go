@@ -50,9 +50,11 @@ type OrderStatus int8
 
 const (
 	StatusNew OrderStatus = iota
+	StatusPlaced
 	StatusPartial
 	StatusFilled
 	StatusCancelled
+	StatusRejected
 )
 
 type Order struct {

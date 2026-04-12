@@ -54,6 +54,52 @@ func (ns NullOrderSide) Value() (driver.Value, error) {
 	return string(ns.OrderSide), nil
 }
 
+type OrderStatus string
+
+const (
+	OrderStatusNEW       OrderStatus = "NEW"
+	OrderStatusPLACED    OrderStatus = "PLACED"
+	OrderStatusPARTIAL   OrderStatus = "PARTIAL"
+	OrderStatusFILLED    OrderStatus = "FILLED"
+	OrderStatusCANCELLED OrderStatus = "CANCELLED"
+	OrderStatusREJECTED  OrderStatus = "REJECTED"
+)
+
+func (e *OrderStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = OrderStatus(s)
+	case string:
+		*e = OrderStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for OrderStatus: %T", src)
+	}
+	return nil
+}
+
+type NullOrderStatus struct {
+	OrderStatus OrderStatus `json:"order_status"`
+	Valid       bool        `json:"valid"` // Valid is true if OrderStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullOrderStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.OrderStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.OrderStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullOrderStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.OrderStatus), nil
+}
+
 type Order struct {
 	ID                uuid.UUID        `json:"id"`
 	UserID            uuid.UUID        `json:"user_id"`
@@ -61,6 +107,7 @@ type Order struct {
 	Quantity          int64            `json:"quantity"`
 	Side              OrderSide        `json:"side"`
 	RemainingQuantity int64            `json:"remaining_quantity"`
+	Status            OrderStatus      `json:"status"`
 	CreatedAt         pgtype.Timestamp `json:"created_at"`
 }
 

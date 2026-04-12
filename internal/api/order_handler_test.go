@@ -14,10 +14,12 @@ import (
 )
 
 type MockOrderService struct {
-	PlaceOrderFunc func(ctx context.Context, order *domain.Order) ([]domain.Trade, error)
+	PlaceOrderFunc   func(ctx context.Context, order *domain.Order) error
+	CancelOrderFunc  func(ctx context.Context, id uuid.UUID) error
+	GetOrderBookFunc func(ctx context.Context) ([]byte, error)
 }
 
-func (m *MockOrderService) PlaceOrder(ctx context.Context, order *domain.Order) ([]domain.Trade, error) {
+func (m *MockOrderService) PlaceOrder(ctx context.Context, order *domain.Order) error {
 	return m.PlaceOrderFunc(ctx, order)
 }
 
@@ -76,7 +78,13 @@ func TestCreateOrder(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			mockSvc := &MockOrderService{
-				PlaceOrderFunc: func(ctx context.Context, order *domain.Order) ([]domain.Trade, error) {
+				PlaceOrderFunc: func(ctx context.Context, order *domain.Order) error {
+					return c.mockServiceErr
+				},
+				CancelOrderFunc: func(ctx context.Context, id uuid.UUID) error {
+					return c.mockServiceErr
+				},
+				GetOrderBookFunc: func(ctx context.Context) ([]byte, error) {
 					return nil, c.mockServiceErr
 				},
 			}

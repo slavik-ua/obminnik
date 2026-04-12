@@ -20,9 +20,15 @@ ORDER BY
 
 -- name: UpdateOrderQuantity :one
 UPDATE orders
-SET remaining_quantity = $2
+SET remaining_quantity = $2,
+    status = $3
 WHERE id = $1
 RETURNING *;
+
+-- name: UpdateOrderStatus :exec
+UPDATE orders
+SET status = $2
+WHERE id = $1;
 
 -- name: CreateTrade :one
 INSERT INTO trades (
@@ -30,8 +36,7 @@ INSERT INTO trades (
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7
 )
-ON CONFLICT ON CONSTRAINT trades_idempotency_key
-DO NOTHING
+ON CONFLICT (id) DO NOTHING
 RETURNING id;
 
 -- name: GetRecentTrades :many
@@ -41,5 +46,5 @@ LIMIT $1;
 
 -- name: CancelOrder :exec
 UPDATE orders
-SET remaining_quantity = 0
-WHERE id = $1;
+SET status = 'CANCELLED'
+WHERE id = $1 AND status IN ('NEW', 'PLACED', 'PARTIAL');

@@ -36,6 +36,7 @@ func (h *OrderHandler) GetOrderBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	w.Write(data)
 }
 
@@ -78,7 +79,7 @@ func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		Status:            domain.StatusNew,
 	}
 
-	_, err := h.service.PlaceOrder(r.Context(), &newOrder)
+	err := h.service.PlaceOrder(r.Context(), &newOrder)
 	if err != nil {
 		slog.Error("failed to place order", "error", err, "user_id", userID)
 		WriteError(w, "internal-error", "Placement Failed", "Order could not be processed", http.StatusInternalServerError)

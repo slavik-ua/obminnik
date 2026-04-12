@@ -22,7 +22,9 @@ type Querier interface {
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	ListActiveOrdersBySide(ctx context.Context, side OrderSide) ([]Order, error)
 	MarkEventProcessed(ctx context.Context, id uuid.UUID) error
+	MarkEventsProcessedBatch(ctx context.Context, dollar_1 []uuid.UUID) error
 	UpdateOrderQuantity(ctx context.Context, arg UpdateOrderQuantityParams) (Order, error)
+	UpdateOrderStatus(ctx context.Context, arg UpdateOrderStatusParams) error
 }
 
 var _ Querier = (*Queries)(nil)

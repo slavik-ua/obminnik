@@ -94,6 +94,7 @@ func (ob *OrderBook) PlaceOrder(id uuid.UUID, userID uuid.UUID, price, quantity 
 		order.Status = StatusPartial
 		ob.addOrderInternal(order)
 	default:
+		order.Status = StatusPlaced
 		ob.addOrderInternal(order)
 	}
 

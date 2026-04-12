@@ -9,15 +9,18 @@ import (
 	"simple-orderbook/internal/core/domain"
 )
 
-type KafkaPublisher struct {
+type KafkaWriter struct {
 	writer *kafka.Writer
 }
 
-func NewKafkaPublisher(brokerAddr string) *KafkaPublisher {
-	return &KafkaPublisher{
+func NewKafkaWriter(brokerAddr string, topic string) *KafkaWriter {
+	return &KafkaWriter{
 		writer: &kafka.Writer{
 			Addr:         kafka.TCP(brokerAddr),
+			Topic:        topic,
 			Balancer:     &kafka.LeastBytes{},
+			Async:        true,
+			BatchTimeout: 5 * time.Millisecond,
 			RequiredAcks: kafka.RequireAll, // Ensure all replicas acknowledge
 			MaxAttempts:  5,
 			WriteTimeout: 10 * time.Second,
@@ -27,15 +30,17 @@ func NewKafkaPublisher(brokerAddr string) *KafkaPublisher {
 	}
 }
 
-func (p *KafkaPublisher) Publish(ctx context.Context, event *domain.OutboxEvent) error {
+func (p *KafkaWriter) Publish(ctx context.Context, event *domain.OutboxEvent) error {
 	return p.writer.WriteMessages(ctx, kafka.Message{
-		Topic: event.Type,
 		Key:   []byte(event.ID.String()),
 		Value: event.Payload,
 		Time:  event.CreatedAt,
+		Headers: []kafka.Header{
+			{Key: "event_type", Value: []byte(event.Type)},
+		},
 	})
 }
 
-func (p *KafkaPublisher) Close() error {
+func (p *KafkaWriter) Close() error {
 	return p.writer.Close()
 }
