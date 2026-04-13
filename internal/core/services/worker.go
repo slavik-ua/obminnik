@@ -46,17 +46,35 @@ func (w *OrderWorker) handlePlaceOrder(ctx context.Context, payload []byte) {
 		return
 	}
 
-	trades := w.orderBook.PlaceOrder(order.ID, order.UserID, order.Price, order.Quantity, order.Side, nil)
-
-	engineOrder, _ := w.orderBook.GetOrder(order.ID)
-	status := engineOrder.Status
+	trades, takerStatus := w.orderBook.PlaceOrder(order.ID, order.UserID, order.Price, order.Quantity, order.Side, nil)
 
 	err := w.store.ExecTx(ctx, func(q *db.Queries) error {
-		if err := w.orderRepo.UpdateStatus(ctx, q, order.ID, status); err != nil {
+		if err := w.orderRepo.UpdateStatus(ctx, q, order.ID, takerStatus); err != nil {
 			return err
 		}
 		for _, trade := range trades {
-			if err := w.tradeRepo.Create(ctx, q, &trade); err != nil {
+			var buyerID, sellerID uuid.UUID
+			if order.Side == domain.SideBuy {
+				buyerID = trade.TakerOrderID
+				sellerID = trade.MakerOrderID
+			} else {
+				buyerID = trade.MakerOrderID
+				sellerID = trade.TakerOrderID
+			}
+
+			if err := w.tradeRepo.Create(ctx, q, &trade, buyerID, sellerID); err != nil {
+				return err
+			}
+
+			slog.Info("Worker matched trade", "takerID", order.ID, "makerID", trade.MakerOrderID, "takerStatus", takerStatus)
+
+			makerInEngine, ok := w.orderBook.GetOrder(trade.MakerOrderID)
+			makerStatus := domain.StatusFilled
+			if ok {
+				makerStatus = makerInEngine.Status
+			}
+
+			if err := w.orderRepo.UpdateStatus(ctx, q, trade.MakerOrderID, makerStatus); err != nil {
 				return err
 			}
 		}
@@ -70,7 +88,7 @@ func (w *OrderWorker) handlePlaceOrder(ctx context.Context, payload []byte) {
 
 	w.refreshCache(ctx)
 
-	slog.Info("worker: processed order", "order_id", order.ID, "trades", len(trades), "status", status)
+	slog.Info("worker: processed order", "order_id", order.ID, "trades", len(trades), "status", takerStatus)
 }
 
 func (w *OrderWorker) handleCancelOrder(ctx context.Context, payload json.RawMessage) {

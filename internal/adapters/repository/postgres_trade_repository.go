@@ -2,9 +2,9 @@ package repository
 
 import (
 	"context"
-	"errors"
 
-	"github.com/jackc/pgx"
+	"github.com/google/uuid"
+
 	"simple-orderbook/internal/core/domain"
 	"simple-orderbook/internal/db"
 )
@@ -19,11 +19,11 @@ func NewPostgresTradeRepository(store *db.Store) *PostgresTradeRepository {
 	}
 }
 
-func (tr *PostgresTradeRepository) Create(ctx context.Context, q *db.Queries, trade *domain.Trade) error {
+func (tr *PostgresTradeRepository) Create(ctx context.Context, q *db.Queries, trade *domain.Trade, buyerID, sellerID uuid.UUID) error {
 	params := db.CreateTradeParams{
 		ID:             trade.ID,
-		BuyerOrderID:   trade.MakerOrderID,
-		SellerOrderID:  trade.TakerOrderID,
+		BuyerOrderID:   buyerID,
+		SellerOrderID:  sellerID,
 		TakerUserID:    trade.TakerUserID,
 		MakerUserID:    trade.MakerUserID,
 		ExecutionPrice: trade.Price,
@@ -31,12 +31,5 @@ func (tr *PostgresTradeRepository) Create(ctx context.Context, q *db.Queries, tr
 	}
 
 	_, err := q.CreateTrade(ctx, params)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil
-		}
-		return err
-	}
-
-	return nil
+	return err
 }

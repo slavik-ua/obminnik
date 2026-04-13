@@ -70,7 +70,7 @@ func (ob *OrderBook) Snapshot() OrderBookSnapshot {
 // slice to reuse its backing array across calls and avoid per-call heap
 // allocations. The slice is reset to length 0 on entry. The returned slice
 // shares the same backing array
-func (ob *OrderBook) PlaceOrder(id uuid.UUID, userID uuid.UUID, price, quantity int64, side OrderSide, trades []Trade) []Trade {
+func (ob *OrderBook) PlaceOrder(id uuid.UUID, userID uuid.UUID, price, quantity int64, side OrderSide, trades []Trade) ([]Trade, OrderStatus) {
 	ob.mu.Lock()
 	defer ob.mu.Unlock()
 
@@ -87,18 +87,19 @@ func (ob *OrderBook) PlaceOrder(id uuid.UUID, userID uuid.UUID, price, quantity 
 
 	trades = ob.matchInternal(order, trades[:0])
 
+	var finalStatus OrderStatus
 	switch {
 	case order.RemainingQuantity == 0:
-		order.Status = StatusFilled
+		finalStatus = StatusFilled
 	case order.RemainingQuantity < order.Quantity:
-		order.Status = StatusPartial
+		finalStatus = StatusPartial
 		ob.addOrderInternal(order)
 	default:
-		order.Status = StatusPlaced
+		finalStatus = StatusPlaced
 		ob.addOrderInternal(order)
 	}
 
-	return trades
+	return trades, finalStatus
 }
 
 func (ob *OrderBook) CancelOrder(id uuid.UUID) bool {
@@ -114,6 +115,17 @@ func (ob *OrderBook) CancelOrder(id uuid.UUID) bool {
 	order.Status = StatusCancelled
 	ob.removeOrderInternal(order)
 	return true
+}
+
+func (ob *OrderBook) Reset() {
+	ob.mu.Lock()
+	defer ob.mu.Unlock()
+
+	ob.Bids = make(map[int64]*PriceLevel)
+	ob.Asks = make(map[int64]*PriceLevel)
+	ob.BidsIndex = nil
+	ob.AsksIndex = nil
+	ob.Orders = make(map[uuid.UUID]*Order)
 }
 
 func (ob *OrderBook) GetOrder(id uuid.UUID) (*Order, bool) {
