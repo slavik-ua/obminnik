@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 	goredis "github.com/redis/go-redis/v9"
@@ -43,6 +45,17 @@ func runMigrations(t *testing.T, connStr string) {
 
 	err = goose.Up(db, migtationDir)
 	require.NoError(t, err)
+}
+
+func cleanEnvironment(t *testing.T, pool *pgxpool.Pool, ob *domain.OrderBook, rdb *goredis.Client) {
+	ctx := context.Background()
+
+	_, err := pool.Exec(ctx, "TRUNCATE orders, trades CASCADE")
+	require.NoError(t, err)
+
+	ob.Reset()
+
+	rdb.FlushAll(ctx)
 }
 
 func TestFullApplicationFlow(t *testing.T) {
@@ -119,11 +132,9 @@ func TestFullApplicationFlow(t *testing.T) {
 
 	mux := setupRouter(orderSvc, authSvc, limiter, jwtSecret)
 
-	slog.Info("BEFORE")
-	time.Sleep(20 * time.Second)
-	slog.Info("AFTER")
-
 	t.Run("Register Login and Order", func(t *testing.T) {
+		cleanEnvironment(t, pool, orderBook, rdb)
+
 		regBody, _ := json.Marshal(map[string]string{
 			"email":    "test@test.com",
 			"password": "hash",
@@ -154,8 +165,6 @@ func TestFullApplicationFlow(t *testing.T) {
 				return false
 			}
 
-			slog.Info("asd", "STATUS", status)
-
 			return status == "PLACED"
 		}, 15*time.Second, 10*time.Millisecond)
 
@@ -185,5 +194,109 @@ func TestFullApplicationFlow(t *testing.T) {
 
 			return true
 		}, 10*time.Second, 10*time.Millisecond)
+	})
+
+	t.Run("Measure Placement and Matching Latency", func(t *testing.T) {
+		cleanEnvironment(t, pool, orderBook, rdb)
+
+		regBody, _ := json.Marshal(map[string]string{"email": "trader1@test.com", "password": "hash"})
+		rr := httptest.NewRecorder()
+		mux.ServeHTTP(rr, httptest.NewRequest("POST", "/register", bytes.NewBuffer(regBody)))
+
+		rr = httptest.NewRecorder()
+		mux.ServeHTTP(rr, httptest.NewRequest("POST", "/login", bytes.NewBuffer(regBody)))
+		var loginResp struct{ Token string }
+		json.Unmarshal(rr.Body.Bytes(), &loginResp)
+
+		orderBody, _ := json.Marshal(map[string]interface{}{
+			"price": 50000, "quantity": 10, "side": "buy",
+		})
+
+		startPlacement := time.Now()
+
+		req := httptest.NewRequest("POST", "/order", bytes.NewBuffer(orderBody))
+		req.Header.Set("Authorization", "Bearer "+loginResp.Token)
+		rr = httptest.NewRecorder()
+		mux.ServeHTTP(rr, req)
+		require.Equal(t, http.StatusCreated, rr.Code)
+
+		var placementDuration time.Duration
+		assert.Eventually(t, func() bool {
+			var status string
+			err := pool.QueryRow(ctx, "SELECT status FROM orders WHERE side='BUY' LIMIT 1").Scan(&status)
+			if err != nil {
+				return false
+			}
+
+			if status == "PLACED" {
+				placementDuration = time.Since(startPlacement)
+				return true
+			}
+			return false
+		}, 10*time.Second, 10*time.Millisecond)
+
+		slog.Info("Latency Result", "step", "placement", "duration", placementDuration)
+	})
+
+	t.Run("Full Match: Buy and Sell equal quantity", func(t *testing.T) {
+		cleanEnvironment(t, pool, orderBook, rdb)
+
+		regBody, _ := json.Marshal(map[string]string{"email": "matcher@gmail.com", "password": "hash"})
+		rr := httptest.NewRecorder()
+		mux.ServeHTTP(rr, httptest.NewRequest("POST", "/register", bytes.NewBuffer(regBody)))
+
+		rr = httptest.NewRecorder()
+		mux.ServeHTTP(rr, httptest.NewRequest("POST", "/login", bytes.NewBuffer(regBody)))
+		var loginResp struct{ Token string }
+		json.Unmarshal(rr.Body.Bytes(), &loginResp)
+
+		startPlacement := time.Now()
+
+		buyBody, _ := json.Marshal(map[string]interface{}{"price": 50000, "quantity": 5, "side": "buy"})
+		rrBuy := httptest.NewRecorder()
+		reqBuy := httptest.NewRequest("POST", "/order", bytes.NewBuffer(buyBody))
+		reqBuy.Header.Set("Authorization", "Bearer "+loginResp.Token)
+		mux.ServeHTTP(rrBuy, reqBuy)
+
+		var buyOrder struct{ ID uuid.UUID }
+		json.Unmarshal(rrBuy.Body.Bytes(), &buyOrder)
+
+		sellBody, _ := json.Marshal(map[string]interface{}{"price": 50000, "quantity": 5, "side": "sell"})
+		rrSell := httptest.NewRecorder()
+		reqSell := httptest.NewRequest("POST", "/order", bytes.NewBuffer(sellBody))
+		reqSell.Header.Set("Authorization", "Bearer "+loginResp.Token)
+		mux.ServeHTTP(rrSell, reqSell)
+
+		var sellOrder struct{ ID uuid.UUID }
+		json.Unmarshal(rrSell.Body.Bytes(), &sellOrder)
+
+		assert.Eventually(t, func() bool {
+			var buyStatus, sellStatus string
+
+			errB := pool.QueryRow(ctx, "SELECT status FROM orders WHERE id=$1", buyOrder.ID).Scan(&buyStatus)
+			errS := pool.QueryRow(ctx, "SELECT status FROM orders WHERE id=$1", sellOrder.ID).Scan(&sellStatus)
+
+			var tradeCountBuy, tradeCountSell int
+
+			errTB := pool.QueryRow(ctx, "SELECT count(*) FROM trades WHERE buyer_order_id=$1", buyOrder.ID).Scan(&tradeCountBuy)
+			errTS := pool.QueryRow(ctx, "SELECT count(*) FROM trades WHERE seller_order_id=$1", sellOrder.ID).Scan(&tradeCountSell)
+
+			if errB != nil || errS != nil || errTB != nil || errTS != nil {
+				slog.Error("Query failed", "errB", errB, "errS", errS, "errTB", errTB, "errTS", errTS)
+				return false
+			}
+
+			slog.Info("Matching Stats",
+				"targetBuyID", buyOrder.ID,
+				"buyStatus", buyStatus,
+				"sellStatus", sellStatus,
+				"buyTradesFound", tradeCountBuy,
+				"sellTradesFound", tradeCountBuy,
+			)
+
+			return buyStatus == "FILLED" && sellStatus == "FILLED" && tradeCountBuy == 1 && tradeCountSell == 1
+		}, 15*time.Second, 10*time.Millisecond)
+
+		slog.Info("Latency Result for Full Match", "step", "placement", "duration", time.Since(startPlacement))
 	})
 }

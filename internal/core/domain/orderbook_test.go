@@ -74,7 +74,7 @@ func TestOrderBook_Matching(t *testing.T) {
 		ob := NewOrderBook()
 		userA := uuid.New()
 		userB := uuid.New()
-		
+
 		idA := uuid.New()
 		idB := uuid.New()
 
@@ -86,7 +86,7 @@ func TestOrderBook_Matching(t *testing.T) {
 		if trades[0].MakerOrderID != idA {
 			t.Errorf("expected to match with first order %s, matched with %s", idA, trades[0].MakerOrderID)
 		}
-		
+
 		_, ok := ob.GetOrder(idB)
 		if !ok {
 			t.Error("second order should still be in the book")
