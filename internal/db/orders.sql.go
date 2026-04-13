@@ -9,6 +9,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const cancelOrder = `-- name: CancelOrder :exec
@@ -24,20 +25,21 @@ func (q *Queries) CancelOrder(ctx context.Context, id uuid.UUID) error {
 
 const createOrder = `-- name: CreateOrder :one
 INSERT INTO orders (
-    id, user_id, price, quantity, side, remaining_quantity
+    id, user_id, price, quantity, side, remaining_quantity, created_at
 ) VALUES (
-    $1, $2, $3, $4, $5, $6
+    $1, $2, $3, $4, $5, $6, $7
 )
 RETURNING id, user_id, price, quantity, side, remaining_quantity, status, created_at
 `
 
 type CreateOrderParams struct {
-	ID                uuid.UUID `json:"id"`
-	UserID            uuid.UUID `json:"user_id"`
-	Price             int64     `json:"price"`
-	Quantity          int64     `json:"quantity"`
-	Side              OrderSide `json:"side"`
-	RemainingQuantity int64     `json:"remaining_quantity"`
+	ID                uuid.UUID        `json:"id"`
+	UserID            uuid.UUID        `json:"user_id"`
+	Price             int64            `json:"price"`
+	Quantity          int64            `json:"quantity"`
+	Side              OrderSide        `json:"side"`
+	RemainingQuantity int64            `json:"remaining_quantity"`
+	CreatedAt         pgtype.Timestamp `json:"created_at"`
 }
 
 func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (Order, error) {
@@ -48,6 +50,7 @@ func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (Order
 		arg.Quantity,
 		arg.Side,
 		arg.RemainingQuantity,
+		arg.CreatedAt,
 	)
 	var i Order
 	err := row.Scan(

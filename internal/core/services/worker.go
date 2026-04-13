@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/segmentio/kafka-go"
@@ -19,16 +20,18 @@ type OrderWorker struct {
 	cache     ports.OrderBookCache
 	orderRepo ports.OrderRepository
 	tradeRepo ports.TradeRepository
+	metrics   ports.Metrics
 	store     *db.Store
 }
 
-func NewOrderWorker(consumer ports.KafkaReader, orderBook *domain.OrderBook, cache ports.OrderBookCache, orderRepo ports.OrderRepository, tradeRepo ports.TradeRepository, store *db.Store) *OrderWorker {
+func NewOrderWorker(consumer ports.KafkaReader, orderBook *domain.OrderBook, cache ports.OrderBookCache, orderRepo ports.OrderRepository, tradeRepo ports.TradeRepository, metrics ports.Metrics, store *db.Store) *OrderWorker {
 	return &OrderWorker{
 		consumer:  consumer,
 		orderBook: orderBook,
 		cache:     cache,
 		orderRepo: orderRepo,
 		tradeRepo: tradeRepo,
+		metrics:   metrics,
 		store:     store,
 	}
 }
@@ -40,6 +43,8 @@ func (w *OrderWorker) refreshCache(ctx context.Context) {
 }
 
 func (w *OrderWorker) handlePlaceOrder(ctx context.Context, payload []byte) {
+	start := time.Now()
+
 	var order domain.Order
 	if err := json.Unmarshal(payload, &order); err != nil {
 		slog.Error("worker: unmarshal error", "error", err)
@@ -47,6 +52,8 @@ func (w *OrderWorker) handlePlaceOrder(ctx context.Context, payload []byte) {
 	}
 
 	trades, takerStatus := w.orderBook.PlaceOrder(order.ID, order.UserID, order.Price, order.Quantity, order.Side, nil)
+
+	w.metrics.RecordMatchingLatency(time.Since(start))
 
 	err := w.store.ExecTx(ctx, func(q *db.Queries) error {
 		if err := w.orderRepo.UpdateStatus(ctx, q, order.ID, takerStatus); err != nil {
@@ -85,6 +92,12 @@ func (w *OrderWorker) handlePlaceOrder(ctx context.Context, payload []byte) {
 		slog.Error("worker: DB transaction failed", "error", err, "order_id", order.ID)
 		return
 	}
+
+	if len(trades) > 0 {
+		w.metrics.RecordTrade(int64(len(trades)))
+	}
+	createdAt := time.Unix(0, order.CreatedAt)
+	w.metrics.RecordEndToEndLatency(time.Since(createdAt))
 
 	w.refreshCache(ctx)
 

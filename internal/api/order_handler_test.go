@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"simple-orderbook/internal/core/domain"
@@ -26,6 +27,13 @@ func (m *MockOrderService) PlaceOrder(ctx context.Context, order *domain.Order) 
 func (m *MockOrderService) CancelOrder(ctx context.Context, id uuid.UUID) error { return nil }
 func (m *MockOrderService) GetOrderBook(ctx context.Context) ([]byte, error)    { return nil, nil }
 func (m *MockOrderService) RebuildOrderBook(ctx context.Context) error          { return nil }
+
+type MockMetrics struct{}
+
+func (m *MockMetrics) RecordOrderPlacement(duration time.Duration, status string) { return }
+func (m *MockMetrics) RecordMatchingLatency(duration time.Duration)               { return }
+func (m *MockMetrics) RecordEndToEndLatency(duration time.Duration)               { return }
+func (m *MockMetrics) RecordTrade(quantity int64)                                 { return }
 
 func TestCreateOrder(t *testing.T) {
 	testUserID := uuid.New()
@@ -89,6 +97,8 @@ func TestCreateOrder(t *testing.T) {
 				},
 			}
 
+			mockMetrics := &MockMetrics{}
+
 			req := httptest.NewRequest("POST", "/order", strings.NewReader(c.input))
 			req.Header.Set("Content-Type", "application/json")
 
@@ -98,7 +108,7 @@ func TestCreateOrder(t *testing.T) {
 			}
 
 			rr := httptest.NewRecorder()
-			handler := NewOrderHandler(mockSvc)
+			handler := NewOrderHandler(mockSvc, mockMetrics)
 
 			handler.CreateOrder(rr, req)
 

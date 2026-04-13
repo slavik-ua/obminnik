@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"strings"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -25,6 +26,7 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 
 	kafka_adapter "simple-orderbook/internal/adapters/kafka"
+	metrics_adapter "simple-orderbook/internal/adapters/metrics"
 	redis_adapter "simple-orderbook/internal/adapters/redis"
 	"simple-orderbook/internal/adapters/repository"
 	"simple-orderbook/internal/core/domain"
@@ -122,15 +124,17 @@ func TestFullApplicationFlow(t *testing.T) {
 	relay := services.NewOutboxRelay(outboxRepo, publisher)
 	go relay.Run(ctx)
 
+	promMetrics := metrics_adapter.NewPrometheusMetrics()
+
 	subscriber := kafka_adapter.NewKafkaReader(kafkaAddr, "order.created", "order-matching-group")
-	worker := services.NewOrderWorker(subscriber, orderBook, cache, orderRepo, tradeRepo, store)
+	worker := services.NewOrderWorker(subscriber, orderBook, cache, orderRepo, tradeRepo, promMetrics, store)
 	go worker.Run(ctx)
 
 	jwtSecret := "test-secret"
 	orderSvc := services.NewOrderService(store, orderRepo, outboxRepo, orderBook, cache, relay)
 	authSvc := services.NewAuthService(authRepo, []byte(jwtSecret), 15*time.Minute)
 
-	mux := setupRouter(orderSvc, authSvc, limiter, jwtSecret)
+	mux := setupRouter(orderSvc, authSvc, limiter, jwtSecret, promMetrics)
 
 	t.Run("Register Login and Order", func(t *testing.T) {
 		cleanEnvironment(t, pool, orderBook, rdb)
@@ -298,5 +302,46 @@ func TestFullApplicationFlow(t *testing.T) {
 		}, 15*time.Second, 10*time.Millisecond)
 
 		slog.Info("Latency Result for Full Match", "step", "placement", "duration", time.Since(startPlacement))
+	})
+
+	t.Run("Verify Prometheus Metrics", func(t *testing.T) {
+		cleanEnvironment(t, pool, orderBook, rdb)
+
+		orderBody, _ := json.Marshal(map[string]interface{}{
+			"price": 100, "quantity": 1, "side": "buy",
+		})
+
+		regBody, _ := json.Marshal(map[string]string{"email": "matcher@gmail.com", "password": "hash"})
+		rr := httptest.NewRecorder()
+		mux.ServeHTTP(rr, httptest.NewRequest("POST", "/register", bytes.NewBuffer(regBody)))
+
+		rr = httptest.NewRecorder()
+		mux.ServeHTTP(rr, httptest.NewRequest("POST", "/login", bytes.NewBuffer(regBody)))
+		var loginResp struct{ Token string }
+		json.Unmarshal(rr.Body.Bytes(), &loginResp)
+
+		req := httptest.NewRequest("POST", "/order", bytes.NewBuffer(orderBody))
+		req.Header.Set("Authorization", "Bearer "+loginResp.Token)
+		rr = httptest.NewRecorder()
+		mux.ServeHTTP(rr, req)
+		require.Equal(t, http.StatusCreated, rr.Code)
+
+		assert.Eventually(t, func() bool {
+			metricsRR := httptest.NewRecorder()
+			mux.ServeHTTP(metricsRR, httptest.NewRequest("GET", "/metrics", nil))
+
+			body := metricsRR.Body.String()
+
+			hasPlacement := strings.Contains(body, "exchange_order_placement_latency_seconds_count")
+			hasMatching := strings.Contains(body, "exchange_matching_engine_latency_seconds_count")
+			has2E := strings.Contains(body, "exchange_order_e2e_latency_seconds_count")
+
+			if hasPlacement && hasMatching && has2E {
+				slog.Info("asd", "content", body)
+				return true
+			} else {
+				return false
+			}
+		}, 10 * time.Second, 200 * time.Millisecond)
 	})
 }

@@ -13,11 +13,13 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/joho/godotenv"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	goredis "github.com/redis/go-redis/v9"
 	"github.com/segmentio/kafka-go"
 	"golang.org/x/sync/errgroup"
 
 	kafka_adapter "simple-orderbook/internal/adapters/kafka"
+	metrics_adapter "simple-orderbook/internal/adapters/metrics"
 	redis_adapter "simple-orderbook/internal/adapters/redis"
 	"simple-orderbook/internal/adapters/repository"
 	"simple-orderbook/internal/api"
@@ -73,14 +75,15 @@ func createTopic(ctx context.Context, brokerAddr string, topic string) error {
 	})
 }
 
-func setupRouter(orderSvc *services.OrderService, authSvc *services.AuthService, limiter ports.RateLimiter, jwtSecret string) *http.ServeMux {
+func setupRouter(orderSvc *services.OrderService, authSvc *services.AuthService, limiter ports.RateLimiter, jwtSecret string, metrics ports.Metrics) *http.ServeMux {
 	mux := http.NewServeMux()
 
-	orderHandler := api.NewOrderHandler(orderSvc)
+	orderHandler := api.NewOrderHandler(orderSvc, metrics)
 	authHandler := api.NewAuthHandler(authSvc)
 
 	mux.HandleFunc("POST /register", authHandler.Register)
 	mux.HandleFunc("POST /login", authHandler.Login)
+	mux.Handle("GET /metrics", promhttp.Handler())
 
 	protected := api.JWTMiddleware(jwtSecret)
 	limited := api.RateLimitMiddleware(limiter, func(r *http.Request) string {
@@ -130,7 +133,9 @@ func run() error {
 	authSvc := services.NewAuthService(authRepo, []byte(cfg.JWTSecret), cfg.JWTTTL)
 	relay := services.NewOutboxRelay(outboxRepo, publisher)
 
-	worker := services.NewOrderWorker(reader, orderBook, cache, orderRepo, tradeRepo, store)
+	promMetrics := metrics_adapter.NewPrometheusMetrics()
+
+	worker := services.NewOrderWorker(reader, orderBook, cache, orderRepo, tradeRepo, promMetrics, store)
 
 	orderSvc := services.NewOrderService(store, orderRepo, outboxRepo, orderBook, cache, relay)
 
@@ -138,7 +143,7 @@ func run() error {
 		return fmt.Errorf("failed to rebuild order book: %w", err)
 	}
 
-	mux := setupRouter(orderSvc, authSvc, limiter, cfg.JWTSecret)
+	mux := setupRouter(orderSvc, authSvc, limiter, cfg.JWTSecret, promMetrics)
 
 	server := &http.Server{
 		Addr:              cfg.Port,

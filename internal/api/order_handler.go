@@ -14,11 +14,13 @@ import (
 
 type OrderHandler struct {
 	service ports.OrderService
+	metrics ports.Metrics
 }
 
-func NewOrderHandler(service ports.OrderService) *OrderHandler {
+func NewOrderHandler(service ports.OrderService, metrics ports.Metrics) *OrderHandler {
 	return &OrderHandler{
 		service: service,
+		metrics: metrics,
 	}
 }
 
@@ -41,6 +43,8 @@ func (h *OrderHandler) GetOrderBook(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+
 	r.Body = http.MaxBytesReader(w, r.Body, 1048576)
 
 	var req CreateOrderRequest
@@ -74,7 +78,7 @@ func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		Price:             req.Price,
 		Quantity:          req.Quantity,
 		RemainingQuantity: req.Quantity,
-		CreatedAt:         time.Now().Unix(),
+		CreatedAt:         time.Now().UnixNano(),
 		Side:              req.Side,
 		Status:            domain.StatusNew,
 	}
@@ -82,9 +86,12 @@ func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	err := h.service.PlaceOrder(r.Context(), &newOrder)
 	if err != nil {
 		slog.Error("failed to place order", "error", err, "user_id", userID)
+		h.metrics.RecordOrderPlacement(time.Since(start), "error")
 		WriteError(w, "internal-error", "Placement Failed", "Order could not be processed", http.StatusInternalServerError)
 		return
 	}
+
+	h.metrics.RecordOrderPlacement(time.Since(start), "success")
 
 	slog.Info("order created",
 		"id", newOrder.ID,

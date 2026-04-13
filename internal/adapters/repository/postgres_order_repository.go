@@ -3,8 +3,10 @@ package repository
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"simple-orderbook/internal/core/domain"
 	"simple-orderbook/internal/db"
@@ -43,6 +45,10 @@ func (r *PostgresOrderRepository) Create(ctx context.Context, q *db.Queries, ord
 		Quantity:          order.Quantity,
 		Side:              side,
 		RemainingQuantity: order.Quantity,
+		CreatedAt:         pgtype.Timestamp{
+			Time: time.Unix(0, order.CreatedAt),
+			Valid: true,
+		},
 	}
 
 	_, err = q.CreateOrder(ctx, params)
