@@ -240,3 +240,24 @@ func (q *Queries) UpdateOrderStatus(ctx context.Context, arg UpdateOrderStatusPa
 	_, err := q.db.Exec(ctx, updateOrderStatus, arg.ID, arg.Status)
 	return err
 }
+
+const updateOrderStatusesBatch = `-- name: UpdateOrderStatusesBatch :exec
+UPDATE orders
+SET status = val.status::order_status
+FROM (
+    SELECT
+        unnest($1::uuid[]) as id,
+        unnest($2::text[]) as status
+) as val
+WHERE orders.id = val.id
+`
+
+type UpdateOrderStatusesBatchParams struct {
+	Ids      []uuid.UUID `json:"ids"`
+	Statuses []string    `json:"statuses"`
+}
+
+func (q *Queries) UpdateOrderStatusesBatch(ctx context.Context, arg UpdateOrderStatusesBatchParams) error {
+	_, err := q.db.Exec(ctx, updateOrderStatusesBatch, arg.Ids, arg.Statuses)
+	return err
+}

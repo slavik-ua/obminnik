@@ -19,9 +19,10 @@ func NewKafkaWriter(brokerAddr string, topic string) *KafkaWriter {
 			Addr:         kafka.TCP(brokerAddr),
 			Topic:        topic,
 			Balancer:     &kafka.LeastBytes{},
-			Async:        true,
-			BatchTimeout: 5 * time.Millisecond,
-			RequiredAcks: kafka.RequireAll, // Ensure all replicas acknowledge
+			Async:        false,
+			BatchTimeout: 1 * time.Millisecond,
+			BatchSize:    100,
+			RequiredAcks: kafka.RequireOne,
 			MaxAttempts:  5,
 			WriteTimeout: 10 * time.Second,
 			ReadTimeout:  10 * time.Second,
@@ -32,7 +33,7 @@ func NewKafkaWriter(brokerAddr string, topic string) *KafkaWriter {
 
 func (p *KafkaWriter) Publish(ctx context.Context, event *domain.OutboxEvent) error {
 	return p.writer.WriteMessages(ctx, kafka.Message{
-		Key:   []byte(event.ID.String()),
+		Key:   []byte("market-1"),
 		Value: event.Payload,
 		Time:  event.CreatedAt,
 		Headers: []kafka.Header{

@@ -2,20 +2,25 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/google/uuid"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/joho/godotenv"
+	"github.com/pressly/goose/v3"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	goredis "github.com/redis/go-redis/v9"
 	"github.com/segmentio/kafka-go"
+
 	"golang.org/x/sync/errgroup"
 
 	kafka_adapter "simple-orderbook/internal/adapters/kafka"
@@ -50,9 +55,9 @@ func getEnv(key, fallback string) string {
 
 func loadConfig() config {
 	return config{
-		DBURL:        getEnv("DB_URL", "localhost:5432"),
-		RedisURL:     getEnv("REDIS_URL", "localhost:6379"),
-		KafkaURL:     getEnv("KAFKA_URL", "localhost:9092"),
+		DBURL:        getEnv("DB_URL", "postgres://postgres:password@db:5432/exchange?sslmode=disable"),
+		RedisURL:     getEnv("REDIS_URL", "redis:6379"),
+		KafkaURL:     getEnv("KAFKA_URL", "redpanda:9092"),
 		KafkaTopic:   getEnv("KAFKA_TOPIC", "order.created"),
 		KafkaGroupID: getEnv("KAFKA_GROUP_ID", "order-matching-group"),
 		JWTSecret:    getEnv("JWT_SECRET", "change-me"),
@@ -68,11 +73,38 @@ func createTopic(ctx context.Context, brokerAddr string, topic string) error {
 	}
 	defer conn.Close()
 
-	return conn.CreateTopics(kafka.TopicConfig{
+	err = conn.CreateTopics(kafka.TopicConfig{
 		Topic:             topic,
 		NumPartitions:     1,
 		ReplicationFactor: 1,
 	})
+
+	if err != nil {
+		if strings.Contains(err.Error(), "already exists") {
+			return nil
+		}
+		return fmt.Errorf("creating topic %s: %w", topic, err)
+	}
+
+	return nil
+}
+
+func runMigrations(connStr string) error {
+	db, err := sql.Open("pgx", connStr)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	migtationDir := "./migrations"
+
+	err = goose.SetDialect("postgres")
+	if err != nil {
+		return err
+	}
+
+	err = goose.Up(db, migtationDir)
+	return err
 }
 
 func setupRouter(orderSvc *services.OrderService, authSvc *services.AuthService, limiter ports.RateLimiter, jwtSecret string, metrics ports.Metrics) *http.ServeMux {
@@ -110,6 +142,10 @@ func run() error {
 	}
 	defer pool.Close()
 
+	if err := runMigrations(cfg.DBURL); err != nil {
+		return err
+	}
+
 	redisClient := goredis.NewClient(&goredis.Options{Addr: cfg.RedisURL})
 	defer redisClient.Close()
 
@@ -126,8 +162,17 @@ func run() error {
 	publisher := kafka_adapter.NewKafkaWriter(cfg.KafkaURL, cfg.KafkaTopic)
 	reader := kafka_adapter.NewKafkaReader(cfg.KafkaURL, cfg.KafkaTopic, cfg.KafkaGroupID)
 
-	if err := createTopic(ctx, cfg.KafkaURL, cfg.KafkaTopic); err != nil {
-		return fmt.Errorf("failed to create kafka topic")
+	for i := 0; i < 10; i++ {
+		err = createTopic(ctx, cfg.KafkaURL, cfg.KafkaTopic)
+		if err == nil {
+			slog.Info("Kafka topic verified/created", "topic", cfg.KafkaTopic)
+			break
+		}
+		slog.Warn("Waiting for Kafka/Redpanda", "attempt", i+1, "error", err)
+		time.Sleep(4 * time.Second)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to create kafka topic after retries: %w", err)
 	}
 
 	authSvc := services.NewAuthService(authRepo, []byte(cfg.JWTSecret), cfg.JWTTTL)

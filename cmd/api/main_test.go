@@ -5,10 +5,10 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"strings"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -35,7 +35,7 @@ import (
 	"simple-orderbook/internal/db"
 )
 
-func runMigrations(t *testing.T, connStr string) {
+func runMigrationsTest(t *testing.T, connStr string) {
 	db, err := sql.Open("pgx", connStr)
 	require.NoError(t, err)
 	defer db.Close()
@@ -52,11 +52,10 @@ func runMigrations(t *testing.T, connStr string) {
 func cleanEnvironment(t *testing.T, pool *pgxpool.Pool, ob *domain.OrderBook, rdb *goredis.Client) {
 	ctx := context.Background()
 
-	_, err := pool.Exec(ctx, "TRUNCATE orders, trades CASCADE")
+	_, err := pool.Exec(ctx, "TRUNCATE orders, trades, outbox CASCADE")
 	require.NoError(t, err)
 
 	ob.Reset()
-
 	rdb.FlushAll(ctx)
 }
 
@@ -83,7 +82,7 @@ func TestFullApplicationFlow(t *testing.T) {
 	defer pgContainer.Terminate(ctx)
 	pgConnStr, _ := pgContainer.ConnectionString(ctx, "sslmode=disable")
 
-	runMigrations(t, pgConnStr)
+	runMigrationsTest(t, pgConnStr)
 
 	redisContainer, err := redis.Run(ctx, "redis:7-alpine")
 	require.NoError(t, err)
@@ -192,7 +191,7 @@ func TestFullApplicationFlow(t *testing.T) {
 				return false
 			}
 
-			if len(snapshot.Bids) != 1 && snapshot.Bids[0].Price != 50000 && snapshot.Bids[0].TotalVol != 10 {
+			if len(snapshot.Bids) != 1 || snapshot.Bids[0].Price != 50000 || snapshot.Bids[0].TotalVol != 10 {
 				return false
 			}
 
@@ -295,7 +294,7 @@ func TestFullApplicationFlow(t *testing.T) {
 				"buyStatus", buyStatus,
 				"sellStatus", sellStatus,
 				"buyTradesFound", tradeCountBuy,
-				"sellTradesFound", tradeCountBuy,
+				"sellTradesFound", tradeCountSell,
 			)
 
 			return buyStatus == "FILLED" && sellStatus == "FILLED" && tradeCountBuy == 1 && tradeCountSell == 1
@@ -342,6 +341,6 @@ func TestFullApplicationFlow(t *testing.T) {
 			} else {
 				return false
 			}
-		}, 10 * time.Second, 200 * time.Millisecond)
+		}, 10*time.Second, 200*time.Millisecond)
 	})
 }

@@ -30,6 +30,16 @@ UPDATE orders
 SET status = $2
 WHERE id = $1;
 
+-- name: UpdateOrderStatusesBatch :exec
+UPDATE orders
+SET status = val.status::order_status
+FROM (
+    SELECT
+        unnest(@ids::uuid[]) as id,
+        unnest(@statuses::text[]) as status
+) as val
+WHERE orders.id = val.id;
+
 -- name: CreateTrade :one
 INSERT INTO trades (
     id, buyer_order_id, seller_order_id, taker_user_id, maker_user_id, execution_price, quantity

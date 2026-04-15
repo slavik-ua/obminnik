@@ -50,7 +50,7 @@ func (r *OutboxRelay) Run(ctx context.Context) {
 }
 
 func (r *OutboxRelay) process(ctx context.Context) (int, error) {
-	events, err := r.outboxRepo.FetchUnprocessed(ctx, 10)
+	events, err := r.outboxRepo.FetchUnprocessed(ctx, 100)
 	if err != nil {
 		slog.Error("outbox relay: fetch failed", "error", err)
 		return 0, err

@@ -41,12 +41,13 @@ func (r *PostgresOrderRepository) Create(ctx context.Context, q *db.Queries, ord
 
 	params := db.CreateOrderParams{
 		ID:                order.ID,
+		UserID:            order.UserID,
 		Price:             order.Price,
 		Quantity:          order.Quantity,
 		Side:              side,
 		RemainingQuantity: order.Quantity,
-		CreatedAt:         pgtype.Timestamp{
-			Time: time.Unix(0, order.CreatedAt),
+		CreatedAt: pgtype.Timestamp{
+			Time:  time.Unix(0, order.CreatedAt),
 			Valid: true,
 		},
 	}
@@ -89,6 +90,22 @@ func (r *PostgresOrderRepository) UpdateStatus(ctx context.Context, q *db.Querie
 	return q.UpdateOrderStatus(ctx, db.UpdateOrderStatusParams{
 		ID:     id,
 		Status: mapStatusToDB(status),
+	})
+}
+
+func (r *PostgresOrderRepository) UpdateOrderStatusBatch(ctx context.Context, q *db.Queries, makerIDs []uuid.UUID, makerStatuses []domain.OrderStatus) error {
+	if len(makerIDs) == 0 {
+		return nil
+	}
+
+	dbStatuses := make([]string, len(makerStatuses))
+	for i, status := range makerStatuses {
+		dbStatuses[i] = string(mapStatusToDB(status))
+	}
+
+	return q.UpdateOrderStatusesBatch(ctx, db.UpdateOrderStatusesBatchParams{
+		Ids:      makerIDs,
+		Statuses: dbStatuses,
 	})
 }
 

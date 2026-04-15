@@ -43,48 +43,53 @@ func (w *OrderWorker) refreshCache(ctx context.Context) {
 }
 
 func (w *OrderWorker) handlePlaceOrder(ctx context.Context, payload []byte) {
-	start := time.Now()
-
 	var order domain.Order
 	if err := json.Unmarshal(payload, &order); err != nil {
 		slog.Error("worker: unmarshal error", "error", err)
 		return
 	}
 
+	engineStart := time.Now()
 	trades, takerStatus := w.orderBook.PlaceOrder(order.ID, order.UserID, order.Price, order.Quantity, order.Side, nil)
-
-	w.metrics.RecordMatchingLatency(time.Since(start))
+	w.metrics.RecordMatchingLatency(time.Since(engineStart))
 
 	err := w.store.ExecTx(ctx, func(q *db.Queries) error {
 		if err := w.orderRepo.UpdateStatus(ctx, q, order.ID, takerStatus); err != nil {
 			return err
 		}
-		for _, trade := range trades {
-			var buyerID, sellerID uuid.UUID
-			if order.Side == domain.SideBuy {
-				buyerID = trade.TakerOrderID
-				sellerID = trade.MakerOrderID
-			} else {
-				buyerID = trade.MakerOrderID
-				sellerID = trade.TakerOrderID
+		if len(trades) > 0 {
+			makerIDs := make([]uuid.UUID, 0, len(trades))
+			makerStatuses := make([]domain.OrderStatus, 0, len(trades))
+
+			for _, trade := range trades {
+				var buyerID, sellerID uuid.UUID
+				if order.Side == domain.SideBuy {
+					buyerID = trade.TakerOrderID
+					sellerID = trade.MakerOrderID
+				} else {
+					buyerID = trade.MakerOrderID
+					sellerID = trade.TakerOrderID
+				}
+
+				if err := w.tradeRepo.Create(ctx, q, &trade, buyerID, sellerID); err != nil {
+					return err
+				}
+
+				slog.Info("Worker matched trade", "takerID", order.ID, "makerID", trade.MakerOrderID, "takerStatus", takerStatus)
+
+				makerInEngine, ok := w.orderBook.GetOrder(trade.MakerOrderID)
+				makerStatus := domain.StatusFilled
+				if ok {
+					makerStatus = makerInEngine.Status
+				}
+
+				makerIDs = append(makerIDs, trade.MakerOrderID)
+				makerStatuses = append(makerStatuses, makerStatus)
 			}
 
-			if err := w.tradeRepo.Create(ctx, q, &trade, buyerID, sellerID); err != nil {
-				return err
-			}
-
-			slog.Info("Worker matched trade", "takerID", order.ID, "makerID", trade.MakerOrderID, "takerStatus", takerStatus)
-
-			makerInEngine, ok := w.orderBook.GetOrder(trade.MakerOrderID)
-			makerStatus := domain.StatusFilled
-			if ok {
-				makerStatus = makerInEngine.Status
-			}
-
-			if err := w.orderRepo.UpdateStatus(ctx, q, trade.MakerOrderID, makerStatus); err != nil {
-				return err
-			}
+			return w.orderRepo.UpdateOrderStatusBatch(ctx, q, makerIDs, makerStatuses)
 		}
+
 		return nil
 	})
 

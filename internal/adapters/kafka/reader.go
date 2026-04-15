@@ -19,9 +19,9 @@ func NewKafkaReader(brokerAddr, topic, groupID string) *KafkaReader {
 			GroupID:        groupID,
 			MinBytes:       1,
 			MaxBytes:       10e6,
-			MaxWait:        20 * time.Millisecond,
+			MaxWait:        5 * time.Millisecond,
 			StartOffset:    kafka.FirstOffset,
-			CommitInterval: 10 * time.Millisecond,
+			CommitInterval: 1 * time.Millisecond,
 		}),
 	}
 }

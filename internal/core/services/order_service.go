@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -42,6 +43,13 @@ func NewOrderService(
 }
 
 func (s *OrderService) PlaceOrder(ctx context.Context, order *domain.Order) error {
+	if order.ID == uuid.Nil {
+		order.ID = uuid.New()
+	}
+	if order.CreatedAt == 0 {
+		order.CreatedAt = time.Now().UnixNano()
+	}
+
 	err := s.store.ExecTx(ctx, func(q *db.Queries) error {
 		order.Status = domain.StatusNew
 		if err := s.orderRepo.Create(ctx, q, order); err != nil {
