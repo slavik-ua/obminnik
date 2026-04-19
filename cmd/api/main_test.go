@@ -19,6 +19,7 @@ import (
 	goredis "github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/gorilla/websocket"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/modules/redis"
@@ -29,6 +30,7 @@ import (
 	metrics_adapter "simple-orderbook/internal/adapters/metrics"
 	redis_adapter "simple-orderbook/internal/adapters/redis"
 	"simple-orderbook/internal/adapters/repository"
+	"simple-orderbook/internal/adapters/ws"
 	"simple-orderbook/internal/core/domain"
 	"simple-orderbook/internal/core/services"
 	"simple-orderbook/internal/database"
@@ -126,14 +128,21 @@ func TestFullApplicationFlow(t *testing.T) {
 	promMetrics := metrics_adapter.NewPrometheusMetrics()
 
 	subscriber := kafka_adapter.NewKafkaReader(kafkaAddr, "order.created", "order-matching-group")
-	worker := services.NewOrderWorker(subscriber, orderBook, cache, orderRepo, tradeRepo, promMetrics, store)
+
+	wsHub := ws.NewHub(rdb)
+	go wsHub.Run(ctx)
+
+	worker := services.NewOrderWorker(subscriber, orderBook, cache, orderRepo, tradeRepo, promMetrics, wsHub, store)
 	go worker.Run(ctx)
 
 	jwtSecret := "test-secret"
 	orderSvc := services.NewOrderService(store, orderRepo, outboxRepo, orderBook, cache, relay)
 	authSvc := services.NewAuthService(authRepo, []byte(jwtSecret), 15*time.Minute)
 
-	mux := setupRouter(orderSvc, authSvc, limiter, jwtSecret, promMetrics)
+	mux := setupRouter(orderSvc, authSvc, limiter, jwtSecret, wsHub.HandleWebSocket, promMetrics)
+
+	server := httptest.NewServer(mux)
+	defer server.Close()
 
 	t.Run("Register Login and Order", func(t *testing.T) {
 		cleanEnvironment(t, pool, orderBook, rdb)
@@ -342,5 +351,58 @@ func TestFullApplicationFlow(t *testing.T) {
 				return false
 			}
 		}, 10*time.Second, 200*time.Millisecond)
+	})
+
+	t.Run("WebSocket", func(t *testing.T) {
+		cleanEnvironment(t, pool, orderBook, rdb)
+
+		regBody, _ := json.Marshal(map[string]string{"email": "trader1@email.com", "password": "hash"})
+		mux.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("POST", "/register", bytes.NewBuffer(regBody)))
+
+		rr := httptest.NewRecorder()
+		mux.ServeHTTP(rr, httptest.NewRequest("POST", "/login", bytes.NewBuffer(regBody)))
+		var loginResp struct { Token string }
+		json.Unmarshal(rr.Body.Bytes(), &loginResp)
+
+		wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws"
+		header := http.Header{}
+		header.Add("Authorization", "Bearer "+loginResp.Token)
+
+		wsConn, _, err := websocket.DefaultDialer.Dial(wsURL, header)
+		slog.Error("ASD", "err", err)
+		require.NoError(t, err)
+		defer wsConn.Close()
+
+		orderBody, _ := json.Marshal(map[string]interface{}{
+			"price": 1000, "quantity": 10, "side": "buy",
+		})
+		req := httptest.NewRequest("POST", "/order", bytes.NewBuffer(orderBody))
+		req.Header.Set("Authorization", "Bearer "+loginResp.Token)
+		mux.ServeHTTP(httptest.NewRecorder(), req)
+
+		foundUpdate := false
+		deadline := time.Now().Add(10 * time.Second)
+
+		for time.Now().Before(deadline) {
+			wsConn.SetReadDeadline(time.Now().Add(1 * time.Second))
+			_, message, err := wsConn.ReadMessage()
+			if err != nil {
+				continue
+			}
+
+			var event struct {
+				Type string `json:"type"`
+			}
+			json.Unmarshal(message, &event)
+
+			slog.Info("ASDASDASD", "message", message)
+
+			if event.Type == "ORDERBOOK_UPDATE" {
+				foundUpdate = true
+				break
+			}
+		}
+
+		assert.True(t, foundUpdate, "Should have received an ORDERBOOK_UPDATE via WebSocket")
 	})
 }
