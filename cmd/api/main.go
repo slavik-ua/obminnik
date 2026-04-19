@@ -27,6 +27,7 @@ import (
 	metrics_adapter "simple-orderbook/internal/adapters/metrics"
 	redis_adapter "simple-orderbook/internal/adapters/redis"
 	"simple-orderbook/internal/adapters/repository"
+	"simple-orderbook/internal/adapters/ws"
 	"simple-orderbook/internal/api"
 	"simple-orderbook/internal/core/domain"
 	"simple-orderbook/internal/core/ports"
@@ -107,7 +108,7 @@ func runMigrations(connStr string) error {
 	return err
 }
 
-func setupRouter(orderSvc *services.OrderService, authSvc *services.AuthService, limiter ports.RateLimiter, jwtSecret string, metrics ports.Metrics) *http.ServeMux {
+func setupRouter(orderSvc *services.OrderService, authSvc *services.AuthService, limiter ports.RateLimiter, jwtSecret string, wsHandler func(http.ResponseWriter, *http.Request), metrics ports.Metrics) *http.ServeMux {
 	mux := http.NewServeMux()
 
 	orderHandler := api.NewOrderHandler(orderSvc, metrics)
@@ -125,6 +126,7 @@ func setupRouter(orderSvc *services.OrderService, authSvc *services.AuthService,
 
 	mux.Handle("POST /order", protected(limited(http.HandlerFunc(orderHandler.CreateOrder))))
 	mux.Handle("GET /orderbook", protected(limited(http.HandlerFunc(orderHandler.GetOrderBook))))
+	mux.Handle("/ws", protected(http.HandlerFunc(wsHandler)))
 
 	return mux
 }
@@ -180,7 +182,9 @@ func run() error {
 
 	promMetrics := metrics_adapter.NewPrometheusMetrics()
 
-	worker := services.NewOrderWorker(reader, orderBook, cache, orderRepo, tradeRepo, promMetrics, store)
+	wsHub := ws.NewHub(redisClient)
+
+	worker := services.NewOrderWorker(reader, orderBook, cache, orderRepo, tradeRepo, promMetrics, wsHub, store)
 
 	orderSvc := services.NewOrderService(store, orderRepo, outboxRepo, orderBook, cache, relay)
 
@@ -188,7 +192,7 @@ func run() error {
 		return fmt.Errorf("failed to rebuild order book: %w", err)
 	}
 
-	mux := setupRouter(orderSvc, authSvc, limiter, cfg.JWTSecret, promMetrics)
+	mux := setupRouter(orderSvc, authSvc, limiter, cfg.JWTSecret, wsHub.HandleWebSocket, promMetrics)
 
 	server := &http.Server{
 		Addr:              cfg.Port,
@@ -204,6 +208,12 @@ func run() error {
 	g.Go(func() error {
 		slog.Info("Starting outbox relay")
 		relay.Run(gCtx)
+		return nil
+	})
+
+	g.Go(func() error {
+		slog.Info("Starting WS Hub")
+		wsHub.Run(gCtx)
 		return nil
 	})
 

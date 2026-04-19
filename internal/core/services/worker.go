@@ -15,24 +15,26 @@ import (
 )
 
 type OrderWorker struct {
-	consumer  ports.KafkaReader
-	orderBook *domain.OrderBook
-	cache     ports.OrderBookCache
-	orderRepo ports.OrderRepository
-	tradeRepo ports.TradeRepository
-	metrics   ports.Metrics
-	store     *db.Store
+	consumer    ports.KafkaReader
+	orderBook   *domain.OrderBook
+	cache       ports.OrderBookCache
+	orderRepo   ports.OrderRepository
+	tradeRepo   ports.TradeRepository
+	metrics     ports.Metrics
+	broadcaster ports.Broadcaster
+	store       *db.Store
 }
 
-func NewOrderWorker(consumer ports.KafkaReader, orderBook *domain.OrderBook, cache ports.OrderBookCache, orderRepo ports.OrderRepository, tradeRepo ports.TradeRepository, metrics ports.Metrics, store *db.Store) *OrderWorker {
+func NewOrderWorker(consumer ports.KafkaReader, orderBook *domain.OrderBook, cache ports.OrderBookCache, orderRepo ports.OrderRepository, tradeRepo ports.TradeRepository, metrics ports.Metrics, broadcaster ports.Broadcaster, store *db.Store) *OrderWorker {
 	return &OrderWorker{
-		consumer:  consumer,
-		orderBook: orderBook,
-		cache:     cache,
-		orderRepo: orderRepo,
-		tradeRepo: tradeRepo,
-		metrics:   metrics,
-		store:     store,
+		consumer:    consumer,
+		orderBook:   orderBook,
+		cache:       cache,
+		orderRepo:   orderRepo,
+		tradeRepo:   tradeRepo,
+		metrics:     metrics,
+		broadcaster: broadcaster,
+		store:       store,
 	}
 }
 
@@ -100,6 +102,22 @@ func (w *OrderWorker) handlePlaceOrder(ctx context.Context, payload []byte) {
 
 	if len(trades) > 0 {
 		w.metrics.RecordTrade(int64(len(trades)))
+
+		tradePayload, err := json.Marshal(trades)
+		if err == nil {
+			w.broadcaster.Broadcast(ctx, ports.BroadcastEvent{
+				Type:    "TRADES_EXECUTED",
+				Payload: tradePayload,
+			})
+		}
+	}
+	snapshot := w.orderBook.Snapshot()
+	obPayload, err := json.Marshal(snapshot)
+	if err == nil {
+		w.broadcaster.Broadcast(ctx, ports.BroadcastEvent{
+			Type:    "ORDERBOOK_UPDATE",
+			Payload: obPayload,
+		})
 	}
 	createdAt := time.Unix(0, order.CreatedAt)
 	w.metrics.RecordEndToEndLatency(time.Since(createdAt))
