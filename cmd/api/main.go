@@ -108,7 +108,7 @@ func runMigrations(connStr string) error {
 	return err
 }
 
-func setupRouter(orderSvc *services.OrderService, authSvc *services.AuthService, limiter ports.RateLimiter, jwtSecret string, wsHandler func(http.ResponseWriter, *http.Request), metrics ports.Metrics) *http.ServeMux {
+func setupRouter(orderSvc *services.OrderService, authSvc *services.AuthService, limiter ports.RateLimiter, jwtSecret string, wsHandler func(http.ResponseWriter, *http.Request), metrics ports.Metrics) http.Handler {
 	mux := http.NewServeMux()
 
 	orderHandler := api.NewOrderHandler(orderSvc, metrics)
@@ -128,7 +128,7 @@ func setupRouter(orderSvc *services.OrderService, authSvc *services.AuthService,
 	mux.Handle("GET /orderbook", protected(limited(http.HandlerFunc(orderHandler.GetOrderBook))))
 	mux.Handle("/ws", protected(http.HandlerFunc(wsHandler)))
 
-	return mux
+	return api.CORSMiddleware(mux)
 }
 
 func run() error {
