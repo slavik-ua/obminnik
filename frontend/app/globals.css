@@ -1,0 +1,113 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: hsla(230, 45%, 5%, 1);
+  --color-foreground: hsla(210, 40%, 98%, 1);
+  --color-card: hsla(230, 45%, 8%, 0.8);
+  --color-border: hsla(230, 20%, 20%, 0.5);
+  --color-primary: hsla(151, 100%, 37.5%, 1);
+  --color-primary-foreground: hsla(210, 40%, 98%, 1);
+  --color-muted-foreground: hsla(215, 20%, 65%, 1);
+  --color-buy: hsla(158, 85%, 50%, 1);
+  --color-sell: hsla(350, 85%, 60%, 1);
+  --color-destructive: hsla(0, 85%, 60%, 1);
+}
+
+:root {
+  --background: 230 45% 5%;
+  --foreground: 210 40% 98%;
+  --card: 230 45% 8%;
+  --card-foreground: 210 40% 98%;
+  --popover: 230 45% 5%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 151 100% 37.5%;
+  --primary-foreground: 210 40% 98%;
+  --secondary: 230 20% 15%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 230 20% 15%;
+  --muted-foreground: 215 20% 65%;
+  --accent: 230 20% 15%;
+  --accent-foreground: 210 40% 98%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 230 20% 20%;
+  --input: 230 20% 20%;
+  --ring: 151 100% 37.5%;
+  
+  --buy: 158 85% 50%;
+  --sell: 350 85% 60%;
+  
+  --radius: 1rem;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    background-image: 
+      radial-gradient(at 0% 0%, hsla(151, 100%, 37.5%, 0.05) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, hsla(158, 85%, 50%, 0.03) 0px, transparent 50%);
+    min-height: 100vh;
+  }
+}
+
+@layer components {
+  .glass {
+    @apply bg-card backdrop-blur-xl border border-border/50 shadow-2xl;
+  }
+  
+  .glass-card {
+    @apply bg-card/40 backdrop-blur-md border border-white/5 shadow-xl transition-all duration-300;
+  }
+  
+  .glass-card:hover {
+    @apply bg-card/60 border-white/10 shadow-2xl;
+  }
+
+  .bg-glow-buy {
+    background: radial-gradient(circle at center, hsl(var(--buy) / 0.15) 0%, transparent 70%);
+  }
+  
+  .bg-glow-sell {
+    background: radial-gradient(circle at center, hsl(var(--sell) / 0.15) 0%, transparent 70%);
+  }
+}
+
+/* Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  @apply bg-white/10 rounded-full transition-colors;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  @apply bg-white/20;
+}
+
+/* Animations */
+@keyframes flash-buy {
+  0% { background-color: hsl(var(--buy) / 0.35); }
+  100% { background-color: transparent; }
+}
+
+@keyframes flash-sell {
+  0% { background-color: hsl(var(--sell) / 0.35); }
+  100% { background-color: transparent; }
+}
+
+.animate-flash-buy {
+  animation: flash-buy 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.animate-flash-sell {
+  animation: flash-sell 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}

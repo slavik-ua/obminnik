@@ -1,0 +1,75 @@
+'use client';
+
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { UNAUTHORIZED_EVENT } from '../api/client';
+
+interface AuthContextType {
+  token: string | null;
+  isAuthenticated: boolean;
+  login: (token: string) => void;
+  logout: () => void;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Use a function to initialize state safely
+  const [token, setToken] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Sync token if it changes in another tab (optional but good practice)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'token') {
+        setToken(e.newValue);
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
+  const logout = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('token');
+    }
+    setToken(null);
+  }, []);
+
+  const login = useCallback((newToken: string) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('token', newToken);
+    }
+    setToken(newToken);
+  }, []);
+
+  // Listen for the global unauthorized event from our API client
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      logout();
+    };
+
+    window.addEventListener(UNAUTHORIZED_EVENT, handleUnauthorized);
+    return () => {
+      window.removeEventListener(UNAUTHORIZED_EVENT, handleUnauthorized);
+    };
+  }, [logout]);
+
+  const value = {
+    token,
+    isAuthenticated: !!token,
+    login,
+    logout,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+};
+
+/**
+ * Custom hook to access auth state throughout the app
+ */
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};

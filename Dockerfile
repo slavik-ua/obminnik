@@ -3,10 +3,14 @@ RUN apk add --no-cache git
 
 WORKDIR /app
 
+# Cache dependencies
 COPY go.mod go.sum ./
 RUN go mod download
 
-COPY . .
+# Copy source
+COPY cmd ./cmd
+COPY internal ./internal
+COPY sql ./sql
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o server ./cmd/api
 
@@ -16,7 +20,7 @@ RUN apk --no-cache add ca-certificates
 WORKDIR /app
 
 COPY --from=builder /app/server .
-COPY ./sql/migrations ./migrations
+COPY --from=builder /app/sql/migrations ./migrations
 
 EXPOSE 8000
 

@@ -64,17 +64,29 @@ services:
         limits:
           cpus: '2.0'
           memory: 1G
-    build: .
+    build: 
+      context: .
+      dockerfile: Dockerfile
     depends_on:
       - db
       - redis
       - redpanda
-      - prometheus
-      - grafana
     environment:
       - DB_URL=postgres://postgres:password@db:5432/exchange?sslmode=disable
       - REDIS_URL=redis:6379
       - KAFKA_URL=redpanda:29092
       - JWT_SECRET="change-me"
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    depends_on:
+      - app
+    ports:
+      - "127.0.0.1:3001:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://127.0.0.1:8000
+      - NEXT_PUBLIC_WS_URL=ws://127.0.0.1:8000/ws
