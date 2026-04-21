@@ -159,7 +159,7 @@ func run() error {
 
 	orderBook := domain.NewOrderBook()
 	cache := redis_adapter.NewOrderBookRedisCache(redisClient)
-	limiter := redis_adapter.NewFixedWindowRateLimiter(redisClient, 100, time.Minute)
+	limiter := redis_adapter.NewFixedWindowRateLimiter(redisClient, 1000, time.Minute)
 
 	publisher := kafka_adapter.NewKafkaWriter(cfg.KafkaURL, cfg.KafkaTopic)
 	reader := kafka_adapter.NewKafkaReader(cfg.KafkaURL, cfg.KafkaTopic, cfg.KafkaGroupID)
