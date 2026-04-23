@@ -1,4 +1,5 @@
 import { ApiError } from '../types';
+import { safeStorage } from '../utils/storage';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -10,7 +11,7 @@ export const UNAUTHORIZED_EVENT = 'app:unauthorized';
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   // Guard for Server Side Rendering (localStorage only exists in browser)
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  const token = safeStorage.getItem('token');
   
   const headers = new Headers(options.headers);
   headers.set('Content-Type', 'application/json');

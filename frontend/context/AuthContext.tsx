@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { UNAUTHORIZED_EVENT } from '../api/client';
+import { safeStorage } from '../utils/storage';
 
 interface AuthContextType {
   token: string | null;
@@ -20,7 +21,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Sync token if it changes in another tab (optional but good practice)
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'token') {
-        setToken(e.newValue);
+        const value = safeStorage.getItem('token');
+        setToken(value);
       }
     };
     window.addEventListener('storage', handleStorageChange);
@@ -28,16 +30,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const logout = useCallback(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('token');
-    }
+    safeStorage.removeItem('token');
     setToken(null);
   }, []);
 
   const login = useCallback((newToken: string) => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('token', newToken);
-    }
+    safeStorage.setItem('token', newToken);
     setToken(newToken);
   }, []);
 
