@@ -13,13 +13,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 	goredis "github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/gorilla/websocket"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/modules/redis"
@@ -361,7 +361,7 @@ func TestFullApplicationFlow(t *testing.T) {
 
 		rr := httptest.NewRecorder()
 		mux.ServeHTTP(rr, httptest.NewRequest("POST", "/login", bytes.NewBuffer(regBody)))
-		var loginResp struct { Token string }
+		var loginResp struct{ Token string }
 		json.Unmarshal(rr.Body.Bytes(), &loginResp)
 
 		wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws"

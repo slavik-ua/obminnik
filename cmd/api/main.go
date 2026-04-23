@@ -97,14 +97,14 @@ func runMigrations(connStr string) error {
 	}
 	defer db.Close()
 
-	migtationDir := "./migrations"
+	migrationDir := getEnv("MIGRATIONS_DIR", "./migrations")
 
 	err = goose.SetDialect("postgres")
 	if err != nil {
 		return err
 	}
 
-	err = goose.Up(db, migtationDir)
+	err = goose.Up(db, migrationDir)
 	return err
 }
 
