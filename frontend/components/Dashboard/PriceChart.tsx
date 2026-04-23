@@ -89,7 +89,7 @@ export const PriceChart: React.FC = () => {
   }, [priceHistory]);
 
   return (
-    <div className="glass-card rounded-2xl p-6 h-full shadow-2xl flex flex-col relative overflow-hidden group">
+    <div className="glass-card rounded-2xl p-6 min-h-[400px] lg:h-full shadow-2xl flex flex-col relative overflow-hidden group">
       <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 blur-3xl rounded-full -mr-16 -mt-16 pointer-events-none" />
       
       <div className="flex items-center justify-between mb-8 z-10">

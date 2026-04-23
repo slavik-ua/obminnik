@@ -9,7 +9,7 @@ interface TradesProps {
 
 export const Trades: React.FC<TradesProps> = ({ trades }) => {
   return (
-    <section className="glass-card rounded-2xl p-0 shadow-2xl overflow-hidden flex flex-col h-full">
+    <section className="glass-card rounded-2xl p-0 shadow-2xl overflow-hidden flex flex-col h-[400px] lg:h-full">
       <div className="p-4 border-b border-border flex justify-between items-center bg-card/30">
         <h3 className="text-foreground font-black text-xs uppercase tracking-widest flex items-center gap-2">
           <History className="w-3.5 h-3.5 text-indigo-400" />

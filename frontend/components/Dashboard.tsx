@@ -49,12 +49,15 @@ export const Dashboard: React.FC = () => {
         const countMatch = text.match(/exchange_matching_engine_latency_seconds_count (\d+)/);
         const volumeMatch = text.match(/exchange_trades_total (\d+)/);
         
+        let avgLatency = 0;
         if (latencyMatch && countMatch) {
           const sum = parseFloat(latencyMatch[1]);
           const count = parseInt(countMatch[1]);
-          const avgLatency = count > 0 ? (sum / count) * 1000 : 0; 
-          setMetrics(avgLatency, volumeMatch ? parseInt(volumeMatch[1]) : 0);
+          avgLatency = count > 0 ? (sum / count) * 1000 : 0; 
         }
+        
+        const volume = volumeMatch ? parseInt(volumeMatch[1]) : 0;
+        setMetrics(avgLatency, volume);
       } catch (err) {
         console.error("Metrics ping failed", err);
       }
@@ -75,10 +78,10 @@ export const Dashboard: React.FC = () => {
   }, [token, apiURL, setMetrics, updatePriceHistory]);
 
   return (
-    <div className="h-screen bg-background flex flex-col font-sans selection:bg-primary/20 overflow-hidden">
+    <div className="min-h-screen lg:h-screen bg-background flex flex-col font-sans selection:bg-primary/20 lg:overflow-hidden overflow-y-auto">
       <Header isConnected={isConnected} />
       
-      <main className="flex-1 p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 max-w-[1920px] mx-auto w-full overflow-hidden min-h-0">
+      <main className="flex-1 p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 max-w-[1920px] mx-auto w-full lg:overflow-hidden min-h-0">
         
         {/* Left Column: Execution & Portfolio (2/12) */}
         <div className="lg:col-span-2 space-y-6 flex flex-col min-h-0">
@@ -91,20 +94,20 @@ export const Dashboard: React.FC = () => {
         {/* Center Column: Charts & Analysis (8/12) */}
         <div className="lg:col-span-8 space-y-6 flex flex-col min-h-0">
           <div className="flex-1 min-h-0 flex flex-col relative">
-             <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex bg-background/50 backdrop-blur-md p-1 rounded-full border border-border/50 shadow-xl">
-               <button 
-                 onClick={() => setActiveTab('price')}
-                 className={`px-6 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${activeTab === 'price' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-muted-foreground hover:text-white'}`}
-               >
-                 Price
-               </button>
-               <button 
-                 onClick={() => setActiveTab('depth')}
-                 className={`px-6 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${activeTab === 'depth' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-muted-foreground hover:text-white'}`}
-               >
-                 Depth
-               </button>
-             </div>
+              <div className="flex bg-background/50 backdrop-blur-md p-1 rounded-full border border-border/50 shadow-xl self-center mb-4">
+                <button 
+                  onClick={() => setActiveTab('price')}
+                  className={`px-6 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${activeTab === 'price' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-muted-foreground hover:text-white'}`}
+                >
+                  Price
+                </button>
+                <button 
+                  onClick={() => setActiveTab('depth')}
+                  className={`px-6 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${activeTab === 'depth' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-muted-foreground hover:text-white'}`}
+                >
+                  Depth
+                </button>
+              </div>
 
              <div className="flex-1 min-h-0">
                 {activeTab === 'price' ? <PriceChart /> : <DepthChart data={{ bids, asks }} />}
@@ -112,7 +115,7 @@ export const Dashboard: React.FC = () => {
           </div>
           
           {/* Market Intelligence Bar */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="glass-card p-4 rounded-2xl relative overflow-hidden group">
               <div className="absolute inset-0 bg-glow-buy opacity-0 group-hover:opacity-100 transition-opacity" />
               <p className="text-[10px] text-muted-foreground uppercase font-black mb-1 tracking-widest">Trade Count</p>

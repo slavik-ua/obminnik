@@ -95,7 +95,7 @@ export const Login: React.FC = () => {
             </div>
           )}
 
-          <div className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
               <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Terminal ID (Email)</label>
               <div className="relative group">
@@ -127,8 +127,7 @@ export const Login: React.FC = () => {
             </div>
 
             <button
-              type="button"
-              onClick={handleSubmit}
+              type="submit"
               disabled={loading}
               className="group relative w-full bg-primary hover:bg-primary/90 disabled:bg-primary/50 text-white font-black uppercase tracking-[0.2em] text-xs py-5 rounded-2xl transition-all shadow-2xl shadow-primary/20 active:scale-[0.98] overflow-hidden"
             >
@@ -144,7 +143,7 @@ export const Login: React.FC = () => {
                 )}
               </div>
             </button>
-          </div>
+          </form>
 
           <div className="mt-10 pt-8 border-t border-border/50">
             <div className="flex flex-col items-center gap-6">

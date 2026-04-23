@@ -36,7 +36,7 @@ export const OrderForm: React.FC = () => {
   return (
     <section className="glass-card rounded-2xl p-6 shadow-2xl relative overflow-hidden group">
       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-      
+
       <div className="flex items-center justify-between mb-8">
         <h3 className="text-foreground font-black text-xs uppercase tracking-widest flex items-center gap-2">
           <Zap className="w-3.5 h-3.5 text-indigo-400 fill-indigo-400 animate-pulse" />
@@ -52,21 +52,19 @@ export const OrderForm: React.FC = () => {
       <div className="flex p-1 bg-background/50 backdrop-blur-md rounded-xl mb-8 border border-border shadow-inner">
         <button
           onClick={() => setSide('buy')}
-          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-black text-[11px] uppercase tracking-wider transition-all duration-300 ${
-            side === 'buy' 
-              ? 'bg-buy text-white shadow-lg shadow-buy/20 scale-[1.02]' 
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
+          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-black text-[11px] uppercase tracking-wider transition-all duration-300 ${side === 'buy'
+            ? 'bg-buy text-white shadow-lg shadow-buy/20 scale-[1.02]'
+            : 'text-muted-foreground hover:text-foreground'
+            }`}
         >
           <TrendingUp className="w-3.5 h-3.5" /> BUY
         </button>
         <button
           onClick={() => setSide('sell')}
-          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-black text-[11px] uppercase tracking-wider transition-all duration-300 ${
-            side === 'sell' 
-              ? 'bg-sell text-white shadow-lg shadow-sell/20 scale-[1.02]' 
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
+          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-black text-[11px] uppercase tracking-wider transition-all duration-300 ${side === 'sell'
+            ? 'bg-sell text-white shadow-lg shadow-sell/20 scale-[1.02]'
+            : 'text-muted-foreground hover:text-foreground'
+            }`}
         >
           <TrendingDown className="w-3.5 h-3.5" /> SELL
         </button>
@@ -81,9 +79,9 @@ export const OrderForm: React.FC = () => {
           <div className="relative group">
             <input
               type="number"
-              step="0.01"
+              step="1"
               required
-              placeholder="0.00"
+              placeholder="0"
               className="w-full bg-background/40 border border-border rounded-xl px-4 py-4 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-foreground font-mono font-bold transition-all placeholder:text-muted-foreground/30 text-lg tabular-nums"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
@@ -98,7 +96,7 @@ export const OrderForm: React.FC = () => {
           </div>
           <input
             type="number"
-            step="0.0001"
+            step="1"
             required
             placeholder="0"
             className="w-full bg-background/40 border border-border rounded-xl px-4 py-4 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-foreground font-mono font-bold transition-all placeholder:text-muted-foreground/30 text-lg tabular-nums"
@@ -117,11 +115,10 @@ export const OrderForm: React.FC = () => {
           <button
             type="submit"
             disabled={loading}
-            className={`w-full py-5 rounded-xl font-black text-xs uppercase tracking-[0.2em] shadow-2xl transition-all active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed group relative overflow-hidden ${
-              side === 'buy'
-                ? 'bg-buy hover:bg-buy/90 shadow-buy/20'
-                : 'bg-sell hover:bg-sell/90 shadow-sell/20'
-            } text-white`}
+            className={`w-full py-5 rounded-xl font-black text-xs uppercase tracking-[0.2em] shadow-2xl transition-all active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed group relative overflow-hidden ${side === 'buy'
+              ? 'bg-buy hover:bg-buy/90 shadow-buy/20'
+              : 'bg-sell hover:bg-sell/90 shadow-sell/20'
+              } text-white`}
           >
             <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
             <span className="relative z-10 flex items-center justify-center gap-2">

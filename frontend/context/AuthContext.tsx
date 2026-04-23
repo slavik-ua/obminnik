@@ -18,7 +18,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
-    // Sync token if it changes in another tab (optional but good practice)
+    // Initial load
+    const savedToken = safeStorage.getItem('token');
+    if (savedToken) {
+      setToken(savedToken);
+    }
+
+    // Sync token if it changes in another tab
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'token') {
         const value = safeStorage.getItem('token');

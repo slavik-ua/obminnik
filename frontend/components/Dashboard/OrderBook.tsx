@@ -45,7 +45,7 @@ export const OrderBook: React.FC<OrderBookProps> = ({ data }) => {
   }, [data]);
 
   return (
-    <section className="glass-card rounded-2xl overflow-hidden h-full flex flex-col shadow-2xl">
+    <section className="glass-card rounded-2xl overflow-hidden h-[500px] lg:h-full flex flex-col shadow-2xl">
       <div className="p-4 border-b border-border flex justify-between items-center bg-card/30">
         <h3 className="text-foreground font-black text-xs uppercase tracking-widest flex items-center gap-2">
           <span className="w-1.5 h-1.5 rounded-full bg-buy shadow-[0_0_8px_hsl(var(--buy)/0.5)]" />
@@ -67,9 +67,10 @@ export const OrderBook: React.FC<OrderBookProps> = ({ data }) => {
         
         <div className="flex-1 overflow-hidden flex flex-col">
           {/* ASKS (Sells) */}
-          <div className="flex flex-col-reverse justify-end flex-1 min-h-0 custom-scrollbar overflow-y-auto">
+          <div className="flex flex-col flex-1 min-h-0 custom-scrollbar overflow-y-auto">
+            <div className="flex-1" />
             {data.asks.length === 0 && <div className="text-center py-8 text-muted-foreground/30 text-[10px] uppercase font-bold tracking-widest">Awaiting Asks...</div>}
-            {data.asks.map((ask, i) => (
+            {data.asks.slice().reverse().map((ask, i) => (
               <OrderRow key={`ask-${ask.price}-${i}`} entry={ask} side="sell" maxVol={maxVol} />
             ))}
           </div>
