@@ -162,13 +162,16 @@ func (s *OrderService) GetOrderBook(ctx context.Context) ([]byte, error) {
 	data, found, err := s.cache.Get(ctx)
 	if err != nil {
 		// fail-open
-		slog.Warn("ordebook cache get failed", "error", err)
+		slog.Warn("orderService: orderbook cache get failed", "error", err)
+		return nil, err
 	}
 	if found {
 		return data, nil
 	}
-	slog.Info("cache miss, falling back to in-memory snapshot")
+	slog.Info("orderService: cache miss")
+	return nil, err
 
+	/*
 	snapshot := s.book.Snapshot()
 	data, err = json.Marshal(snapshot)
 	if err != nil {
@@ -180,10 +183,11 @@ func (s *OrderService) GetOrderBook(ctx context.Context) ([]byte, error) {
 	}
 
 	return data, nil
+	*/
 }
 
 func (s *OrderService) RebuildOrderBook(ctx context.Context) error {
-	slog.Info("rebuilding order book from database")
+	slog.Info("orderService: rebuilding orderbook from the database")
 	for _, side := range []db.OrderSide{db.OrderSideBUY, db.OrderSideSELL} {
 		orders, err := s.orderRepo.ListActiveBySide(ctx, side)
 		if err != nil {
@@ -193,6 +197,17 @@ func (s *OrderService) RebuildOrderBook(ctx context.Context) error {
 			s.book.RestoreOrder(o)
 		}
 	}
-	slog.Info("order book rebuild complete")
+	slog.Info("orderService: orderbook rebuild complete")
+
+	snapshot := s.book.Snapshot()
+	payload, err := json.Marshal(snapshot)
+	if err != nil {
+		slog.Error("orderService: failed to marshal OrderBook snapshot")
+		return err
+	}
+	if err := s.cache.Set(ctx, payload); err != nil {
+		return err
+	}
+
 	return nil
 }

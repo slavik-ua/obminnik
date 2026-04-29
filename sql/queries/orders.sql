@@ -49,6 +49,20 @@ INSERT INTO trades (
 ON CONFLICT (id) DO NOTHING
 RETURNING id;
 
+-- name: CreateTradesBatch :exec
+INSERT INTO trades (
+    id, buyer_order_id, seller_order_id, taker_user_id, maker_user_id, execution_price, quantity
+)
+SELECT
+    unnest(@ids::uuid[]),
+    unnest(@buyer_order_ids::uuid[]),
+    unnest(@seller_order_ids::uuid[]),
+    unnest(@taker_user_ids::uuid[]),
+    unnest(@maker_user_ids::uuid[]),
+    unnest(@execution_prices::bigint[]),
+    unnest(@quantities::bigint[])
+ON CONFLICT (id) DO NOTHING;
+
 -- name: GetRecentTrades :many
 SELECT * FROM trades
 ORDER BY executed_at DESC

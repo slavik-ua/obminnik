@@ -19,7 +19,7 @@ func NewKafkaWriter(brokerAddr string, topic string) *KafkaWriter {
 			Addr:         kafka.TCP(brokerAddr),
 			Topic:        topic,
 			Balancer:     &kafka.LeastBytes{},
-			Async:        false,
+			Async:        true,
 			BatchTimeout: 1 * time.Millisecond,
 			BatchSize:    100,
 			RequiredAcks: kafka.RequireOne,

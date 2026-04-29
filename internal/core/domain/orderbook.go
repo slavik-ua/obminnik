@@ -22,7 +22,6 @@ type OrderBook struct {
 	BidsIndex []int64
 	AsksIndex []int64
 	Orders    map[uuid.UUID]*Order
-	mu        sync.RWMutex
 }
 
 type OrderBookSnapshot struct {
@@ -35,6 +34,12 @@ type PriceLevelSnapshot struct {
 	TotalVol int64 `json:"total_vol"`
 }
 
+var orderPool = &sync.Pool{
+	New: func() interface{} {
+		return &Order{}
+	},
+}
+
 func NewOrderBook() *OrderBook {
 	return &OrderBook{
 		Bids:   make(map[int64]*PriceLevel),
@@ -44,9 +49,6 @@ func NewOrderBook() *OrderBook {
 }
 
 func (ob *OrderBook) Snapshot() OrderBookSnapshot {
-	ob.mu.RLock()
-	defer ob.mu.RUnlock()
-
 	snap := OrderBookSnapshot{
 		Bids: make([]PriceLevelSnapshot, len(ob.BidsIndex)),
 		Asks: make([]PriceLevelSnapshot, len(ob.AsksIndex)),
@@ -71,19 +73,16 @@ func (ob *OrderBook) Snapshot() OrderBookSnapshot {
 // allocations. The slice is reset to length 0 on entry. The returned slice
 // shares the same backing array
 func (ob *OrderBook) PlaceOrder(id uuid.UUID, userID uuid.UUID, price, quantity int64, side OrderSide, trades []Trade) ([]Trade, OrderStatus) {
-	ob.mu.Lock()
-	defer ob.mu.Unlock()
+	order := orderPool.Get().(*Order)
 
-	order := &Order{
-		ID:                id,
-		UserID:            userID,
-		CreatedAt:         time.Now().UnixNano(),
-		Price:             price,
-		Quantity:          quantity,
-		RemainingQuantity: quantity,
-		Side:              side,
-		Status:            StatusNew,
-	}
+	order.ID = id
+	order.UserID = userID
+	order.CreatedAt = time.Now().UnixNano()
+	order.Price = price
+	order.Quantity = quantity
+	order.RemainingQuantity = quantity
+	order.Side = side
+	order.Status = StatusNew
 
 	trades = ob.matchInternal(order, trades[:0])
 
@@ -103,9 +102,6 @@ func (ob *OrderBook) PlaceOrder(id uuid.UUID, userID uuid.UUID, price, quantity 
 }
 
 func (ob *OrderBook) CancelOrder(id uuid.UUID) bool {
-	ob.mu.Lock()
-	defer ob.mu.Unlock()
-
 	order, ok := ob.Orders[id]
 	if !ok {
 		return false
@@ -118,9 +114,6 @@ func (ob *OrderBook) CancelOrder(id uuid.UUID) bool {
 }
 
 func (ob *OrderBook) Reset() {
-	ob.mu.Lock()
-	defer ob.mu.Unlock()
-
 	ob.Bids = make(map[int64]*PriceLevel)
 	ob.Asks = make(map[int64]*PriceLevel)
 	ob.BidsIndex = nil
@@ -129,17 +122,11 @@ func (ob *OrderBook) Reset() {
 }
 
 func (ob *OrderBook) GetOrder(id uuid.UUID) (*Order, bool) {
-	ob.mu.RLock()
-	defer ob.mu.RUnlock()
-
 	o, ok := ob.Orders[id]
 	return o, ok
 }
 
 func (ob *OrderBook) RestoreOrder(order *Order) {
-	ob.mu.Lock()
-	defer ob.mu.Unlock()
-
 	if _, exists := ob.Orders[order.ID]; !exists {
 		ob.addOrderInternal(order)
 	}
@@ -270,6 +257,8 @@ func (ob *OrderBook) removeOrderInternal(order *Order) {
 	order.next = nil
 	order.prev = nil
 	order.parent = nil
+
+	orderPool.Put(order)
 }
 
 // Returns the map, sorted index slice pointer, and comparison function

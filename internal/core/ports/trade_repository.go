@@ -11,4 +11,5 @@ import (
 
 type TradeRepository interface {
 	Create(ctx context.Context, q *db.Queries, trade *domain.Trade, buyerID, sellerID uuid.UUID) error
+	CreateBatch(ctx context.Context, q *db.Queries, trades []domain.Trade, orderSide domain.OrderSide) error
 }

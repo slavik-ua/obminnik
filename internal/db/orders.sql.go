@@ -101,6 +101,44 @@ func (q *Queries) CreateTrade(ctx context.Context, arg CreateTradeParams) (uuid.
 	return id, err
 }
 
+const createTradesBatch = `-- name: CreateTradesBatch :exec
+INSERT INTO trades (
+    id, buyer_order_id, seller_order_id, taker_user_id, maker_user_id, execution_price, quantity
+)
+SELECT
+    unnest($1::uuid[]),
+    unnest($2::uuid[]),
+    unnest($3::uuid[]),
+    unnest($4::uuid[]),
+    unnest($5::uuid[]),
+    unnest($6::bigint[]),
+    unnest($7::bigint[])
+ON CONFLICT (id) DO NOTHING
+`
+
+type CreateTradesBatchParams struct {
+	Ids             []uuid.UUID `json:"ids"`
+	BuyerOrderIds   []uuid.UUID `json:"buyer_order_ids"`
+	SellerOrderIds  []uuid.UUID `json:"seller_order_ids"`
+	TakerUserIds    []uuid.UUID `json:"taker_user_ids"`
+	MakerUserIds    []uuid.UUID `json:"maker_user_ids"`
+	ExecutionPrices []int64     `json:"execution_prices"`
+	Quantities      []int64     `json:"quantities"`
+}
+
+func (q *Queries) CreateTradesBatch(ctx context.Context, arg CreateTradesBatchParams) error {
+	_, err := q.db.Exec(ctx, createTradesBatch,
+		arg.Ids,
+		arg.BuyerOrderIds,
+		arg.SellerOrderIds,
+		arg.TakerUserIds,
+		arg.MakerUserIds,
+		arg.ExecutionPrices,
+		arg.Quantities,
+	)
+	return err
+}
+
 const getOrder = `-- name: GetOrder :one
 SELECT id, user_id, price, quantity, side, remaining_quantity, status, created_at FROM orders
 WHERE id = $1 LIMIT 1

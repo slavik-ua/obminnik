@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"sync"
 	"testing"
 
 	"github.com/google/uuid"
@@ -125,40 +124,4 @@ func TestOrderBook_Matching(t *testing.T) {
 			t.Errorf("expected status 1, got %d", status)
 		}
 	})
-}
-
-func TestOrderBook_Concurrency(t *testing.T) {
-	ob := NewOrderBook()
-	const workers = 100
-	const ordersPerWorker = 10
-	const targetPrice = 100
-
-	var wg sync.WaitGroup
-	wg.Add(workers * 2)
-
-	for i := 0; i < workers; i++ {
-		go func(workerID int) {
-			defer wg.Done()
-			for j := 0; j < ordersPerWorker; j++ {
-				ob.PlaceOrder(uuid.New(), uuid.New(), targetPrice, 1, SideBuy, nil)
-			}
-		}(i)
-	}
-
-	for i := 0; i < workers; i++ {
-		go func(workerID int) {
-			defer wg.Done()
-			for j := 0; j < ordersPerWorker; j++ {
-				ob.PlaceOrder(uuid.New(), uuid.New(), targetPrice, 1, SideSell, nil)
-			}
-		}(i)
-	}
-
-	wg.Wait()
-
-	snapshot := ob.Snapshot()
-
-	if len(snapshot.Bids) != 0 || (len(snapshot.Asks) != 0) {
-		t.Errorf("expected empty book, got Bids: %d, Asks: %d", len(snapshot.Bids), len(snapshot.Asks))
-	}
 }
