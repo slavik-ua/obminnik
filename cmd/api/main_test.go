@@ -35,6 +35,7 @@ import (
 	"simple-orderbook/internal/core/services"
 	"simple-orderbook/internal/database"
 	"simple-orderbook/internal/db"
+	"simple-orderbook/internal/pkg/idgen"
 )
 
 func runMigrationsTest(t *testing.T, connStr string) {
@@ -86,6 +87,8 @@ func TestFullApplicationFlow(t *testing.T) {
 
 	runMigrationsTest(t, pgConnStr)
 
+	fastGen := idgen.NewGenerator(ctx, 2000)
+
 	redisContainer, err := redis.Run(ctx, "redis:7-alpine")
 	require.NoError(t, err)
 	defer redisContainer.Terminate(ctx)
@@ -117,7 +120,7 @@ func TestFullApplicationFlow(t *testing.T) {
 	outboxRepo := repository.NewPostgresOutboxRepository(store)
 	authRepo := repository.NewPostgresAuthRepository(store)
 
-	orderBook := domain.NewOrderBook()
+	orderBook := domain.NewOrderBook(fastGen)
 	cache := redis_adapter.NewOrderBookRedisCache(rdb)
 	limiter := redis_adapter.NewFixedWindowRateLimiter(rdb, 100, time.Minute)
 	publisher := kafka_adapter.NewKafkaWriter(kafkaAddr, "order.created")
@@ -136,10 +139,10 @@ func TestFullApplicationFlow(t *testing.T) {
 	go worker.Run(ctx)
 
 	jwtSecret := "test-secret"
-	orderSvc := services.NewOrderService(store, orderRepo, outboxRepo, orderBook, cache, relay)
+	orderSvc := services.NewOrderService(store, orderRepo, outboxRepo, orderBook, cache, relay, fastGen)
 	authSvc := services.NewAuthService(authRepo, []byte(jwtSecret), 15*time.Minute)
 
-	mux := setupRouter(orderSvc, authSvc, limiter, jwtSecret, wsHub.HandleWebSocket, promMetrics)
+	mux := setupRouter(orderSvc, authSvc, limiter, jwtSecret, wsHub.HandleWebSocket, promMetrics, fastGen)
 
 	server := httptest.NewServer(mux)
 	defer server.Close()

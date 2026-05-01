@@ -6,11 +6,17 @@ import (
 	"github.com/google/uuid"
 )
 
+type MockGenerator struct {
+	FixedID uuid.UUID
+}
+
+func (m *MockGenerator) Next() uuid.UUID { return m.FixedID }
+
 func TestOrderBook_Matching(t *testing.T) {
 	userID := uuid.New()
 
 	t.Run("Full match", func(t *testing.T) {
-		ob := NewOrderBook()
+		ob := NewOrderBook(&MockGenerator{})
 		ob.PlaceOrder(uuid.New(), userID, 100, 10, SideBuy, nil)
 
 		trades, status := ob.PlaceOrder(uuid.New(), userID, 100, 10, SideSell, nil)
@@ -29,7 +35,7 @@ func TestOrderBook_Matching(t *testing.T) {
 	})
 
 	t.Run("Partial Fill: Taker smaller than Maker", func(t *testing.T) {
-		ob := NewOrderBook()
+		ob := NewOrderBook(&MockGenerator{})
 		makerID := uuid.New()
 
 		ob.PlaceOrder(makerID, userID, 100, 10, SideBuy, nil)
@@ -53,7 +59,7 @@ func TestOrderBook_Matching(t *testing.T) {
 	})
 
 	t.Run("Patial Fill: Taker larger than Maker", func(t *testing.T) {
-		ob := NewOrderBook()
+		ob := NewOrderBook(&MockGenerator{})
 		ob.PlaceOrder(uuid.New(), userID, 100, 10, SideBuy, nil)
 
 		trades, status := ob.PlaceOrder(uuid.New(), userID, 100, 15, SideSell, nil)
@@ -70,7 +76,7 @@ func TestOrderBook_Matching(t *testing.T) {
 	})
 
 	t.Run("Price-Time Priority", func(t *testing.T) {
-		ob := NewOrderBook()
+		ob := NewOrderBook(&MockGenerator{})
 		userA := uuid.New()
 		userB := uuid.New()
 
@@ -93,7 +99,7 @@ func TestOrderBook_Matching(t *testing.T) {
 	})
 
 	t.Run("Multiple Price Levels", func(t *testing.T) {
-		ob := NewOrderBook()
+		ob := NewOrderBook(&MockGenerator{})
 
 		ob.PlaceOrder(uuid.New(), userID, 100, 10, SideBuy, nil)
 		ob.PlaceOrder(uuid.New(), userID, 90, 10, SideBuy, nil)
@@ -112,7 +118,7 @@ func TestOrderBook_Matching(t *testing.T) {
 	})
 
 	t.Run("No match (Price too high)", func(t *testing.T) {
-		ob := NewOrderBook()
+		ob := NewOrderBook(&MockGenerator{})
 		ob.PlaceOrder(uuid.New(), userID, 100, 10, SideBuy, nil)
 
 		trades, status := ob.PlaceOrder(uuid.New(), userID, 101, 10, SideSell, nil)

@@ -197,7 +197,7 @@ func (w *OrderWorker) handleCancelOrder(ctx context.Context, payload json.RawMes
 		}
 
 		w.needsRefresh.Store(true)
-		
+
 		slog.Info("worker: order cancelled", "order_id", req.OrderID)
 	}
 }

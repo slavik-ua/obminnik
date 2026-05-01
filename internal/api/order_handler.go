@@ -15,12 +15,14 @@ import (
 type OrderHandler struct {
 	service ports.OrderService
 	metrics ports.Metrics
+	idGen   domain.IDGenerator
 }
 
-func NewOrderHandler(service ports.OrderService, metrics ports.Metrics) *OrderHandler {
+func NewOrderHandler(service ports.OrderService, metrics ports.Metrics, idGen domain.IDGenerator) *OrderHandler {
 	return &OrderHandler{
 		service: service,
 		metrics: metrics,
+		idGen:   idGen,
 	}
 }
 
@@ -73,7 +75,7 @@ func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	}
 
 	newOrder := domain.Order{
-		ID:                uuid.New(),
+		ID:                h.idGen.Next(),
 		UserID:            userID,
 		Price:             req.Price,
 		Quantity:          req.Quantity,

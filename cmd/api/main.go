@@ -34,6 +34,7 @@ import (
 	"simple-orderbook/internal/core/services"
 	"simple-orderbook/internal/database"
 	"simple-orderbook/internal/db"
+	"simple-orderbook/internal/pkg/idgen"
 )
 
 type config struct {
@@ -108,10 +109,10 @@ func runMigrations(connStr string) error {
 	return err
 }
 
-func setupRouter(orderSvc *services.OrderService, authSvc *services.AuthService, limiter ports.RateLimiter, jwtSecret string, wsHandler func(http.ResponseWriter, *http.Request), metrics ports.Metrics) http.Handler {
+func setupRouter(orderSvc *services.OrderService, authSvc *services.AuthService, limiter ports.RateLimiter, jwtSecret string, wsHandler func(http.ResponseWriter, *http.Request), metrics ports.Metrics, idgen domain.IDGenerator) http.Handler {
 	mux := http.NewServeMux()
 
-	orderHandler := api.NewOrderHandler(orderSvc, metrics)
+	orderHandler := api.NewOrderHandler(orderSvc, metrics, idgen)
 	authHandler := api.NewAuthHandler(authSvc)
 
 	mux.HandleFunc("POST /register", authHandler.Register)
@@ -151,13 +152,15 @@ func run() error {
 	redisClient := goredis.NewClient(&goredis.Options{Addr: cfg.RedisURL})
 	defer redisClient.Close()
 
+	fastGen := idgen.NewGenerator(ctx, 2000)
+
 	store := db.NewStore(pool)
 	orderRepo := repository.NewPostgresOrderRepository(store)
 	tradeRepo := repository.NewPostgresTradeRepository(store)
 	outboxRepo := repository.NewPostgresOutboxRepository(store)
 	authRepo := repository.NewPostgresAuthRepository(store)
 
-	orderBook := domain.NewOrderBook()
+	orderBook := domain.NewOrderBook(fastGen)
 	cache := redis_adapter.NewOrderBookRedisCache(redisClient)
 	limiter := redis_adapter.NewFixedWindowRateLimiter(redisClient, 1000, time.Minute)
 
@@ -186,13 +189,13 @@ func run() error {
 
 	worker := services.NewOrderWorker(reader, orderBook, cache, orderRepo, tradeRepo, promMetrics, wsHub, store)
 
-	orderSvc := services.NewOrderService(store, orderRepo, outboxRepo, orderBook, cache, relay)
+	orderSvc := services.NewOrderService(store, orderRepo, outboxRepo, orderBook, cache, relay, fastGen)
 
 	if err := orderSvc.RebuildOrderBook(ctx); err != nil {
 		return fmt.Errorf("failed to rebuild order book: %w", err)
 	}
 
-	mux := setupRouter(orderSvc, authSvc, limiter, cfg.JWTSecret, wsHub.HandleWebSocket, promMetrics)
+	mux := setupRouter(orderSvc, authSvc, limiter, cfg.JWTSecret, wsHub.HandleWebSocket, promMetrics, fastGen)
 
 	server := &http.Server{
 		Addr:              cfg.Port,

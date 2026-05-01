@@ -22,6 +22,8 @@ type OrderService struct {
 	book     *domain.OrderBook
 	cache    ports.OrderBookCache
 	notifier ports.OutboxNotifier
+
+	idGen domain.IDGenerator
 }
 
 func NewOrderService(
@@ -31,6 +33,7 @@ func NewOrderService(
 	book *domain.OrderBook,
 	cache ports.OrderBookCache,
 	notifier ports.OutboxNotifier,
+	idGen domain.IDGenerator,
 ) *OrderService {
 	return &OrderService{
 		store:      store,
@@ -39,12 +42,13 @@ func NewOrderService(
 		book:       book,
 		cache:      cache,
 		notifier:   notifier,
+		idGen:      idGen,
 	}
 }
 
 func (s *OrderService) PlaceOrder(ctx context.Context, order *domain.Order) error {
 	if order.ID == uuid.Nil {
-		order.ID = uuid.New()
+		order.ID = s.idGen.Next()
 	}
 	if order.CreatedAt == 0 {
 		order.CreatedAt = time.Now().UnixNano()
@@ -62,7 +66,7 @@ func (s *OrderService) PlaceOrder(ctx context.Context, order *domain.Order) erro
 		}
 
 		event := &domain.OutboxEvent{
-			ID:      uuid.New(),
+			ID:      s.idGen.Next(),
 			Type:    "OrderPlaced",
 			Payload: payload,
 		}
@@ -126,7 +130,7 @@ func (s *OrderService) CancelOrder(ctx context.Context, id uuid.UUID) error {
 		}
 
 		event := &domain.OutboxEvent{
-			ID:      uuid.New(),
+			ID:      s.idGen.Next(),
 			Type:    "OrderCancelRequested",
 			Payload: payload,
 		}
@@ -172,17 +176,17 @@ func (s *OrderService) GetOrderBook(ctx context.Context) ([]byte, error) {
 	return nil, err
 
 	/*
-	snapshot := s.book.Snapshot()
-	data, err = json.Marshal(snapshot)
-	if err != nil {
-		return nil, fmt.Errorf("marshal orderbook: %w", err)
-	}
+		snapshot := s.book.Snapshot()
+		data, err = json.Marshal(snapshot)
+		if err != nil {
+			return nil, fmt.Errorf("marshal orderbook: %w", err)
+		}
 
-	if err := s.cache.Set(ctx, data); err != nil {
-		slog.Warn("failed to populate cache", "error", err)
-	}
+		if err := s.cache.Set(ctx, data); err != nil {
+			slog.Warn("failed to populate cache", "error", err)
+		}
 
-	return data, nil
+		return data, nil
 	*/
 }
 

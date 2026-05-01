@@ -35,8 +35,16 @@ func (m *MockMetrics) RecordMatchingLatency(duration time.Duration)             
 func (m *MockMetrics) RecordEndToEndLatency(duration time.Duration)               { return }
 func (m *MockMetrics) RecordTrade(quantity int64)                                 { return }
 
+type MockGenerator struct {
+	FixedID uuid.UUID
+}
+
+func (m *MockGenerator) Next() uuid.UUID { return m.FixedID }
+
 func TestCreateOrder(t *testing.T) {
 	testUserID := uuid.New()
+
+	mockGen := &MockGenerator{FixedID: uuid.New()}
 
 	cases := []struct {
 		name           string
@@ -108,7 +116,7 @@ func TestCreateOrder(t *testing.T) {
 			}
 
 			rr := httptest.NewRecorder()
-			handler := NewOrderHandler(mockSvc, mockMetrics)
+			handler := NewOrderHandler(mockSvc, mockMetrics, mockGen)
 
 			handler.CreateOrder(rr, req)
 

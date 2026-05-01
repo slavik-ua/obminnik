@@ -22,6 +22,8 @@ type OrderBook struct {
 	BidsIndex []int64
 	AsksIndex []int64
 	Orders    map[uuid.UUID]*Order
+
+	idGen IDGenerator
 }
 
 type OrderBookSnapshot struct {
@@ -40,11 +42,12 @@ var orderPool = &sync.Pool{
 	},
 }
 
-func NewOrderBook() *OrderBook {
+func NewOrderBook(idGen IDGenerator) *OrderBook {
 	return &OrderBook{
 		Bids:   make(map[int64]*PriceLevel),
 		Asks:   make(map[int64]*PriceLevel),
 		Orders: make(map[uuid.UUID]*Order),
+		idGen:  idGen,
 	}
 }
 
@@ -154,7 +157,7 @@ func (ob *OrderBook) matchInternal(taker *Order, trades []Trade) []Trade {
 			level.TotalVol -= tradeQty
 
 			trades = append(trades, Trade{
-				ID:           uuid.New(),
+				ID:           ob.idGen.Next(),
 				Price:        levelPrice,
 				Quantity:     tradeQty,
 				TakerOrderID: taker.ID,
