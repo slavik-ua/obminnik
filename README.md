@@ -14,11 +14,12 @@ OBMINNIK ("Exchange" in Ukrainian) is a high-performance limit order book (LOB) 
 
 ## 📖 Table of Contents
 - [🚀 Features](#features)
-- [📊 Performance & Metrics](#performance--metrics)
+- [📊 Performance & Metrics](#performance-metrics)
     - [Executive Summary](#executive-summary)
     - [Latency Analysis](#latency-analysis)
     - [Resource Utilization](#resource-utilization)
 - [🏗️ Architecture](#architecture)
+- [📝 Architecture Decision Records (ADRs)](#architecture-decision-records)
 - [📊 Core Data Models](#core-data-models)
 - [🛠️ Tech Stack](#tech-stack)
 - [📸 Screenshots](#screenshots)
@@ -47,27 +48,25 @@ OBMINNIK ("Exchange" in Ukrainian) is a high-performance limit order book (LOB) 
 
 ---
 
-## 📊 Performance & Metrics <a name="performance--metrics"></a>
+## 📊 Performance & Metrics <a name="performance-metrics"></a>
 
 ### Executive Summary
 
 OBMINNIK demonstrates high-performance capabilities with a robust matching engine. While currently very efficient, we are constantly working on further performance optimizations to reach even higher speeds. The core engine processes matches at a sub-microsecond average, and the end-to-end order lifecycle remains highly consistent.
 
 
-## 📈 Performance Benchmarks
+## 📈 Performance Evolution
 
-| Metric | v0.1 (Baseline) | **v0.2 (Optimized)** | Change |
-| :--- | :--- | :--- | :--- |
-| **Test Methodology** | Sequential (Low Pressure) | **Concurrent (High Pressure)** | |
-| **Total Orders** | 2,027 | **13,690** | **+575%** 🟢 |
-| **Total Trades** | 2,150 | **10,973** | **+410%** 🟢 |
-| **Avg. Match Time** | 3.98 μs | **2.61 μs** | **-34%** 🟢 |
-| **Avg. E2E Latency** | 12.24 ms | **13.68 ms** | +1.4 ms 🟡 |
-| **Placement Latency (P99)**| < 25 ms | **< 10 ms** | **-60%** 🟢 |
-| **Max GC Pause** | 562 μs | **358 μs** | **-36%** 🟢 |
-| **Heap Usage (In-Use)** | 4.04 MB | **8.06 MB** | Stable 🟢 |
+| Metric | v0.1 (Baseline) | v0.2 (Optimized) | **v0.3 (Current)** | Change (v0.2 → v0.3) |
+| :--- | :--- | :--- | :--- | :--- |
+| **Avg. Match Time** | 3.98 μs | 2.61 μs | **2.67 μs** | Stable (±2%) 🟢 |
+| **Avg. E2E Latency** | 12.24 ms | 13.68 ms | **13.78 ms** | Stable 🟢 |
+| **Max GC Pause** | 562.0 μs | 358.0 μs | **134.0 μs** | **-62.5%** 🟢🟢 |
+| **CPU Time (Total)** | 21.74 s | 20.12 s* | **18.38 s** | **-8.6%** 🟢 |
+| **Heap Objects (Live)** | ~45k | ~85k | **66k** | **-22.3%** 🟢 |
+| **Total Allocations** | 364 MB | 355 MB* | **340 MB** | **-4.2%** 🟢 |
 
-### Component Latency Breakdown (v0.2)
+### Component Latency Breakdown (v0.3)
 
 | Component | P50 (Median) | P95 | P99 (Tail) | Status |
 | :--- | :--- | :--- | :--- | :--- |
@@ -76,7 +75,7 @@ OBMINNIK demonstrates high-performance capabilities with a robust matching engin
 | **End-to-End (E2E)** | ~12 ms | < 25 ms | < 50 ms | 🟢 |
 
 > [!IMPORTANT]
-> **Methodology Shift:** v0.1 was tested using serial scripts with minimal concurrency. **v0.2 was tested using a concurrent multi-threaded load balancer** simulating 20+ traders hitting the API simultaneously with high-frequency updates. Despite the significantly higher stress, v0.2 achieves a **34% faster matching speed** and maintains stable performance under heavy "thundering herd" conditions.
+> **Methodology Shift:** v0.1 was tested using serial scripts with minimal concurrency. **v0.2 and v0.3 were tested using a concurrent multi-threaded load balancer** simulating 20+ traders hitting the API simultaneously. Despite the significantly higher stress, the system achieves a **34% faster matching speed** than v0.1 and, as of v0.3, a **62% reduction in system jitter (GC pauses)**.
 
 ---
 
@@ -98,13 +97,14 @@ OBMINNIK follows a modern event-driven architecture:
 
 ---
 
-### 📝 Architecture Decision Records (ADRs)
+### 📝 Architecture Decision Records (ADRs) <a name="architecture-decision-records"></a>
 We use ADRs to track significant architectural changes and the rationale behind them. This ensures transparency in our technical trade-offs.
 
 | ID | Title | Status |
 | :--- | :--- | :--- |
 | [0001](docs/adr/0001-initial-architecture.md) | Initial Project Structure & Baseline | ✅ Accepted |
 | [0002](docs/adr/0002-decouple-worker-reporting-and-batch-persistence.md) | Decouple Reporting & Batch Persistence | ✅ Accepted |
+| [0003](docs/adr/0003-optimized-id-generation.md) | Optimized ID Generation for High-Throughput Matching | ✅ Accepted |
 
 ---
 
@@ -216,38 +216,28 @@ python load_test.py
 
 To take OBMINNIK to the next level, we will:
 
-### 1. Architecture Design Records (ADR)
-- [x] Adapt **ADRs** to document key architectural decisions and their rationale. As the system grows in complexity (e.g., adding multi-asset support or self-custody), we need a clear audit trail of *why* specific trade-offs were made. This ensures long-term maintainability and helps new contributors understand the "reasoning" behind the code.
+### 1. Financial Integrity & Accounting (Critical)
+*   **Double-Entry Ledger System**: Transition from simple balance updates to a strict double-entry accounting ledger to ensure the system is mathematically provable.
+*   **"Available vs. Locked" Model**: Implement fund locking. When an order is placed, funds move to a `LOCKED` state in the DB and are only `SETTLED` or `UNLOCKED` upon engine confirmation.
+*   **Formalized Fixed-Point Arithmetic**: Establish a global precision scale (e.g., 18 decimals for ETH/ERC20) and implement scale-aware math for settlement and fee calculations to prevent "decimal drift."
 
-### 2. Robust Ledger & Balance Management
+### 2. Reliability & Determinism
+*   **Snapshot & Offset Sync**: Synchronize the in-memory state with specific Kafka offsets. This ensures that upon restart, the engine "replays" exactly from the last processed message, preventing duplicate executions.
+*   **Event Sourcing & Replay**: Ensure the Matching Engine is 100% deterministic. If a worker crashes, it should be able to "replay" the Kafka topic from the last snapshot to perfectly rebuild the OrderBook state.
 
-- Double-Entry Accounting: Transition from simple balance updates to a strict double-entry ledger. Every movement of funds must have a corresponding ledger_entry (Audit Trail) to ensure the system is mathematically provable and auditable.
-- "Available vs. Locked" Model: Implement logic to move funds to a LOCKED state when an order is placed and only SETTLE (move to the counterparty) or UNLOCK (on cancel) once the matching engine confirms the event.
-- Atomic Settlement: Ensure that a trade settlement (updating Buyer, Seller, and Fee accounts) happens within a single database transaction to prevent "partial fills" where one side gets the money but the other doesn't.
+### 3. Performance Optimization (The HFT Edge)
+*   **Binary Serialization (Protobuf)**: Replace JSON over Kafka/Redpanda with **Protocol Buffers**. This removes the overhead of reflection-based JSON parsing and significantly reduces the network payload size, lowering P99 latency.
+*   **In-Memory Balance Cache**: Move "Available" balance checks out of Postgres and into a high-speed Redis Lua script or in-memory cache to push TPS into the thousands.
 
-### 3. Multi-Asset & Market Support
-- Dynamic Market Routing: Support multiple trading pairs (e.g., BTC/USD, ETH/USD) by spinning up isolated OrderBook instances for each pair, orchestrated by a central EngineRegistry.
-- Fixed-Point Arithmetic: Move away from any potential float usage in the pipeline. Implement a standardized Decimal handling system (e.g., storing all values as int64 with a base-18 precision) to handle assets like ETH without precision loss.
-- Fee Engine: Implement a tiered fee structure (Maker/Taker) that calculates and deducts commissions in real-time during the matching process.
+### 4. Architecture & Service Communication
+*   **Internal gRPC Diagnostic API**: Implement **gRPC** services for internal communication between the API and the Engine Workers. This allows the API to query the live in-memory state of the Matching Engine (e.g., for health checks or live statistics) without touching the database.
+*   **Dynamic Market Routing**: Support multiple trading pairs by spinning up isolated `OrderBook` instances orchestrated by a central `EngineRegistry`.
 
-### 4. Web3 & Self-Custody Integration
-- Vault Smart Contracts: Develop an Ethereum/L2 Vault contract that allows users to deposit Mock ETH/ERC20s.
-- Blockchain Event Listener: Build a high-reliability Go service using go-ethereum to watch for Deposit events and automatically credit user balances in the off-chain engine.
-- SIWE (Sign-In With Ethereum): Replace traditional email/password auth with EIP-4361, allowing users to authenticate using MetaMask signatures, making the system "Crypto-Native."
+### 5. Web3 & Self-Custody Integration
+*   **Vault Smart Contracts**: Develop Ethereum/L2 Vault contracts allowing users to deposit Mock ETH/ERC20s.
+*   **SIWE (Sign-In With Ethereum)**: Replace traditional email/password auth with EIP-4361, allowing users to authenticate using MetaMask signatures.
 
-### 5. Advanced Observability & SRE (Site Reliability Engineering)
-- Latency SLOs (Service Level Objectives): Define and alert on "Latency Budgets." If P99 E2E latency exceeds 100ms for more than 1 minute, trigger automated PagerDuty/Slack notifications.
-- Consumer Lag Monitoring: Track the delta between the Kafka "High Watermark" (last produced order) and the Worker's current offset. If the gap grows, the system is underperforming and needs to auto-scale.
-- Tracing with OpenTelemetry: Implement distributed tracing to visualize the life of a single Order ID as it hops from the API, through Kafka, into the Worker, and finally to the WebSocket.
-
-### 6. Performance Optimization (The HFT Edge)
-- Hot-Path Zero Allocation: Refactor the matching engine loop to use sync.Pool for Trade and Order objects, reducing GC pressure and eliminating the latency "jitter" currently seen in your P99 metrics.
-- In-Memory Balance Cache: Move the "Available" balance check out of Postgres and into a high-speed in-memory cache (or Redis Lua scripts) to push TPS (Transactions Per Second) from the current double-digits into the thousands.
-- Binary Serialization: Replace JSON over Kafka/WebSockets with Protocol Buffers (Protobuf) or SBE (Simple Binary Encoding) to reduce payload size and CPU cycles spent on (un)marshalling.
-
-### 7. Reliability & Determinism
-- Event Sourcing & Replay: Ensure the Matching Engine is 100% deterministic. If the Worker crashes, it should be able to "replay" the Kafka topic from the last snapshot to perfectly rebuild the OrderBook state without data loss.
-- Graceful Degradation: Implement "Circuit Breakers" that automatically stop order acceptance if the Database or Kafka becomes unreachable, protecting the system from entering an inconsistent state.
+---
 
 ## ⚠️ Disclaimer <a name="disclaimer"></a>
 
