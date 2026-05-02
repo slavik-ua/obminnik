@@ -129,6 +129,7 @@ func setupRouter(orderSvc *services.OrderService, authSvc *services.AuthService,
 	mux.Handle("POST /order/cancel", protected(limited(http.HandlerFunc(orderHandler.CancelOrder))))
 	mux.Handle("POST /deposit", protected(limited(http.HandlerFunc(orderHandler.Deposit))))
 	mux.Handle("GET /orderbook", protected(limited(http.HandlerFunc(orderHandler.GetOrderBook))))
+	mux.Handle("GET /balances", protected(limited(http.HandlerFunc(orderHandler.GetBalances))))
 	mux.Handle("/ws", protected(http.HandlerFunc(wsHandler)))
 
 	return api.CORSMiddleware(mux)

@@ -184,3 +184,6 @@ func (s *OrderService) RebuildOrderBook(ctx context.Context) error {
 
 	return nil
 }
+func (s *OrderService) GetBalances(ctx context.Context, userID uuid.UUID) ([]domain.BalanceRecord, error) {
+	return s.accountRepo.GetBalances(ctx, userID)
+}

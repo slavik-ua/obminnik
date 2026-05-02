@@ -12,4 +12,5 @@ type OrderService interface {
 	CancelOrder(ctx context.Context, userID uuid.UUID, id uuid.UUID) error
 	GetOrderBook(ctx context.Context) ([]byte, error)
 	Deposit(ctx context.Context, userID uuid.UUID, asset string, amount int64) error
+	GetBalances(ctx context.Context, userID uuid.UUID) ([]domain.BalanceRecord, error)
 }

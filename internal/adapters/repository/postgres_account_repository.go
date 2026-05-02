@@ -79,6 +79,25 @@ func (r *PostgresAccountRepository) ListAllBalances(ctx context.Context) ([]doma
 	return records, nil
 }
 
+func (r *PostgresAccountRepository) GetBalances(ctx context.Context, userID uuid.UUID) ([]domain.BalanceRecord, error) {
+	rows, err := r.store.GetBalancesByUser(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	records := make([]domain.BalanceRecord, len(rows))
+	for i, row := range rows {
+		records[i] = domain.BalanceRecord{
+			UserID:      userID,
+			AssetSymbol: row.AssetSymbol,
+			Available:   row.Available,
+			Locked:      row.Locked,
+		}
+	}
+
+	return records, nil
+}
+
 func (r *PostgresAccountRepository) Deposit(ctx context.Context, q *db.Queries, userID uuid.UUID, asset string, amount int64) error {
 	_, err := q.UpsertBalance(ctx, db.UpsertBalanceParams{
 		UserID:      userID,

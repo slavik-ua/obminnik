@@ -38,6 +38,11 @@ INSERT INTO ledger_entries (
 SELECT user_id, asset_symbol, available, locked
 FROM balances;
 
+-- name: GetBalancesByUser :many
+SELECT asset_symbol, available, locked
+FROM balances
+WHERE user_id = $1;
+
 -- name: EnsureBalancesExist :exec
 INSERT INTO balances (user_id, asset_symbol, available, locked, updated_at)
 SELECT

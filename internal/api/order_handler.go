@@ -162,3 +162,21 @@ func (h *OrderHandler) CancelOrder(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 }
+func (h *OrderHandler) GetBalances(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(UserIDKey).(uuid.UUID)
+	if !ok {
+		WriteUnauthorizedError(w)
+		return
+	}
+
+	balances, err := h.service.GetBalances(r.Context(), userID)
+	if err != nil {
+		slog.Error("failed to get balances", "error", err, "user_id", userID)
+		WriteError(w, "internal-error", "Fetch Failed", "Could not retrieve balances", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(balances)
+}

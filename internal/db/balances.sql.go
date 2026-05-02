@@ -104,6 +104,38 @@ func (q *Queries) EnsureBalancesExist(ctx context.Context, arg EnsureBalancesExi
 	return err
 }
 
+const getBalancesByUser = `-- name: GetBalancesByUser :many
+SELECT asset_symbol, available, locked
+FROM balances
+WHERE user_id = $1
+`
+
+type GetBalancesByUserRow struct {
+	AssetSymbol string `json:"asset_symbol"`
+	Available   int64  `json:"available"`
+	Locked      int64  `json:"locked"`
+}
+
+func (q *Queries) GetBalancesByUser(ctx context.Context, userID uuid.UUID) ([]GetBalancesByUserRow, error) {
+	rows, err := q.db.Query(ctx, getBalancesByUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetBalancesByUserRow
+	for rows.Next() {
+		var i GetBalancesByUserRow
+		if err := rows.Scan(&i.AssetSymbol, &i.Available, &i.Locked); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAllBalances = `-- name: ListAllBalances :many
 SELECT user_id, asset_symbol, available, locked
 FROM balances

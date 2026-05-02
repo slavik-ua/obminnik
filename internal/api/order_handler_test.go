@@ -19,6 +19,11 @@ type MockOrderService struct {
 	CancelOrderFunc  func(ctx context.Context, userID uuid.UUID, id uuid.UUID) error
 	GetOrderBookFunc func(ctx context.Context) ([]byte, error)
 	DepositFunc      func(ctx context.Context, userID uuid.UUID, asset string, amount int64) error
+	GetBalancesFunc  func(ctx context.Context, userID uuid.UUID) ([]domain.BalanceRecord, error)
+}
+
+func (m *MockOrderService) GetBalances(ctx context.Context, userID uuid.UUID) ([]domain.BalanceRecord, error) {
+	return m.GetBalancesFunc(ctx, userID)
 }
 
 func (m *MockOrderService) PlaceOrder(ctx context.Context, order *domain.Order) error {
@@ -113,6 +118,9 @@ func TestCreateOrder(t *testing.T) {
 				},
 				DepositFunc: func(ctx context.Context, userID uuid.UUID, asset string, amount int64) error {
 					return c.mockServiceErr
+				},
+				GetBalancesFunc: func(ctx context.Context, userID uuid.UUID) ([]domain.BalanceRecord, error) {
+					return nil, c.mockServiceErr
 				},
 			}
 

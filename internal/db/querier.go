@@ -22,6 +22,7 @@ type Querier interface {
 	CreateUser(ctx context.Context, arg CreateUserParams) error
 	EnsureBalancesExist(ctx context.Context, arg EnsureBalancesExistParams) error
 	FetchUnprocessedEvents(ctx context.Context, limit int32) ([]Outbox, error)
+	GetBalancesByUser(ctx context.Context, userID uuid.UUID) ([]GetBalancesByUserRow, error)
 	GetOrder(ctx context.Context, id uuid.UUID) (Order, error)
 	GetRecentTrades(ctx context.Context, limit int32) ([]Trade, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
