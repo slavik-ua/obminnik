@@ -1,6 +1,6 @@
 /**
- * A safe wrapper for localStorage to prevent "The operation is insecure" 
- * or "Access Denied" errors in some browser environments (e.g. Incognito, 
+ * A safe wrapper for localStorage to prevent "The operation is insecure"
+ * or "Access Denied" errors in some browser environments (e.g. Incognito,
  * strictly blocked cookies, or certain proxy/iframe contexts).
  */
 export const safeStorage = {
@@ -13,7 +13,7 @@ export const safeStorage = {
       return null;
     }
   },
-  
+
   setItem: (key: string, value: string): void => {
     try {
       if (typeof window === 'undefined') return;
@@ -22,7 +22,7 @@ export const safeStorage = {
       console.error(`LocalStorage write failed for key "${key}":`, e);
     }
   },
-  
+
   removeItem: (key: string): void => {
     try {
       if (typeof window === 'undefined') return;
@@ -30,5 +30,5 @@ export const safeStorage = {
     } catch (e) {
       console.error(`LocalStorage remove failed for key "${key}":`, e);
     }
-  }
+  },
 };

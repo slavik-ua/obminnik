@@ -10,7 +10,7 @@ GOLANGCI_VERSION=v1.64.5
 # --- Standard Targets ---
 
 .PHONY: all
-all: install-tools setup-hooks generate build
+all: install-tools setup-hooks generate frontend-install build
 
 # Install tooling (Linter, Security Scanner, SQL Generator)
 .PHONY: install-tools
@@ -53,7 +53,7 @@ run: build
 
 # Run all non-destructive checks (Used in CI/CD pipelines)
 .PHONY: check
-check: tidy lint secure test-unit
+check: tidy lint secure test-unit frontend-check
 
 # Ensure go.mod and go.sum are perfectly synced
 .PHONY: tidy
@@ -73,6 +73,36 @@ lint:
 secure:
 	@echo "Running vulnerability scan..."
 	govulncheck ./...
+
+# --- Frontend Quality Gates ---
+
+# Install frontend dependencies
+.PHONY: frontend-install
+frontend-install:
+	@echo "Installing frontend dependencies..."
+	cd frontend && npm install
+
+# Run frontend linting
+.PHONY: frontend-lint
+frontend-lint:
+	@echo "Running frontend lint..."
+	cd frontend && npm run lint
+
+# Check frontend formatting
+.PHONY: frontend-format
+frontend-format:
+	@echo "Checking frontend formatting..."
+	cd frontend && npm run format:check
+
+# Run frontend type checking
+.PHONY: frontend-type-check
+frontend-type-check:
+	@echo "Running frontend type check..."
+	cd frontend && npm run type-check
+
+# Run all frontend quality checks
+.PHONY: frontend-check
+frontend-check: frontend-lint frontend-format frontend-type-check
 
 # --- Testing ---
 

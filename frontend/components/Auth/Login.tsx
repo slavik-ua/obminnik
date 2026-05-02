@@ -1,6 +1,8 @@
 'use client';
-import React, { useState, useEffect } from 'react';
-import { Mail, Lock, Activity, AlertCircle, Loader2, ArrowRight, Shield } from 'lucide-react';
+import { AlertCircle, ArrowRight, Loader2, Lock, Mail, Shield } from 'lucide-react';
+import Image from 'next/image';
+import React, { useEffect, useState } from 'react';
+
 import { api } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { AuthResponse } from '../../types';
@@ -20,7 +22,7 @@ export const Login: React.FC = () => {
 
   const handleSubmit = async (e?: React.FormEvent | React.MouseEvent) => {
     e?.preventDefault();
-    
+
     if (!email || !password) {
       setError('Please provide both terminal ID and security key.');
       return;
@@ -61,17 +63,19 @@ export const Login: React.FC = () => {
       <div className="w-full max-w-[440px] relative z-20">
         {/* Brand Section */}
         <div className="flex flex-col items-center mb-10 group cursor-default">
-          <img 
-            src="/LOGO.png" 
-            alt="OBMINNIK Logo" 
+          <Image
+            src="/LOGO.png"
+            alt="OBMINNIK Logo"
+            width={160}
+            height={64}
             className="h-16 w-auto mb-4 group-hover:scale-105 transition-transform duration-500"
           />
           <div className="h-[2px] w-12 bg-primary/30 mt-2 rounded-full" />
         </div>
 
         <div className="glass-card rounded-[2rem] p-10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/5 relative overflow-hidden">
-           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
-           
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
+
           <div className="mb-10">
             <h2 className="text-2xl font-black text-foreground mb-2 tracking-tight">
               {isRegister ? 'JOIN THE ELITE' : 'WELCOME BACK'}
@@ -97,7 +101,9 @@ export const Login: React.FC = () => {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Terminal ID (Email)</label>
+              <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">
+                Terminal ID (Email)
+              </label>
               <div className="relative group">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                 <input
@@ -112,7 +118,9 @@ export const Login: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Security Key (Password)</label>
+              <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">
+                Security Key (Password)
+              </label>
               <div className="relative group">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                 <input
@@ -148,7 +156,7 @@ export const Login: React.FC = () => {
           <div className="mt-10 pt-8 border-t border-border/50">
             <div className="flex flex-col items-center gap-6">
               <p className="text-center text-muted-foreground text-[11px] font-bold uppercase tracking-wider">
-                {isRegister ? 'ALREADY REGISTERED?' : "REQUIRE TERMINAL ACCESS?"}{' '}
+                {isRegister ? 'ALREADY REGISTERED?' : 'REQUIRE TERMINAL ACCESS?'}{' '}
                 <button
                   type="button"
                   onClick={(e) => {
@@ -163,15 +171,17 @@ export const Login: React.FC = () => {
                   {isRegister ? 'LOGIN' : 'REGISTER'}
                 </button>
               </p>
-              
+
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-background/30 border border-border/30">
                 <Shield className="w-3 h-3 text-muted-foreground" />
-                <span className="text-[9px] text-muted-foreground font-black uppercase tracking-widest">End-to-End Encrypted</span>
+                <span className="text-[9px] text-muted-foreground font-black uppercase tracking-widest">
+                  End-to-End Encrypted
+                </span>
               </div>
             </div>
           </div>
         </div>
-        
+
         <p className="text-center mt-10 text-[9px] text-muted-foreground/40 font-black tracking-[0.3em] uppercase">
           OBMINNIK Global Trading Network // Secure Gateway
         </p>

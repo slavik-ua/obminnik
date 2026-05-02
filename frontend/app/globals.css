@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @theme {
   --color-background: hsla(230, 45%, 5%, 1);
@@ -33,10 +33,10 @@
   --border: 230 20% 20%;
   --input: 230 20% 20%;
   --ring: 151 100% 37.5%;
-  
+
   --buy: 158 85% 50%;
   --sell: 350 85% 60%;
-  
+
   --radius: 1rem;
 }
 
@@ -46,7 +46,7 @@
   }
   body {
     @apply bg-background text-foreground;
-    background-image: 
+    background-image:
       radial-gradient(at 0% 0%, hsla(151, 100%, 37.5%, 0.05) 0px, transparent 50%),
       radial-gradient(at 100% 100%, hsla(158, 85%, 50%, 0.03) 0px, transparent 50%);
     min-height: 100vh;
@@ -57,11 +57,11 @@
   .glass {
     @apply bg-card backdrop-blur-xl border border-border/50 shadow-2xl;
   }
-  
+
   .glass-card {
     @apply bg-card/40 backdrop-blur-md border border-white/5 shadow-xl transition-all duration-300;
   }
-  
+
   .glass-card:hover {
     @apply bg-card/60 border-white/10 shadow-2xl;
   }
@@ -69,7 +69,7 @@
   .bg-glow-buy {
     background: radial-gradient(circle at center, hsl(var(--buy) / 0.15) 0%, transparent 70%);
   }
-  
+
   .bg-glow-sell {
     background: radial-gradient(circle at center, hsl(var(--sell) / 0.15) 0%, transparent 70%);
   }
@@ -95,13 +95,21 @@
 
 /* Animations */
 @keyframes flash-buy {
-  0% { background-color: hsl(var(--buy) / 0.35); }
-  100% { background-color: transparent; }
+  0% {
+    background-color: hsl(var(--buy) / 0.35);
+  }
+  100% {
+    background-color: transparent;
+  }
 }
 
 @keyframes flash-sell {
-  0% { background-color: hsl(var(--sell) / 0.35); }
-  100% { background-color: transparent; }
+  0% {
+    background-color: hsl(var(--sell) / 0.35);
+  }
+  100% {
+    background-color: transparent;
+  }
 }
 
 .animate-flash-buy {

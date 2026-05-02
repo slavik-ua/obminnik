@@ -1,6 +1,7 @@
-import { useEffect, useRef, useCallback } from 'react';
-import { WSMessage } from '../types';
+import { useCallback, useEffect, useRef } from 'react';
+
 import { useMarketStore } from '../store/useMarketStore';
+import { WSMessage } from '../types';
 
 const WS_BASE = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000/ws';
 
@@ -45,7 +46,7 @@ export const useWebSocket = (token: string | null) => {
     socket.onclose = () => {
       console.log('WebSocket Disconnected');
       setConnected(false);
-      
+
       reconnectTimeoutRef.current = setTimeout(() => {
         console.log('Attempting to reconnect...');
         connectRef.current?.();

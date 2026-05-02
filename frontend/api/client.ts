@@ -12,10 +12,10 @@ export const UNAUTHORIZED_EVENT = 'app:unauthorized';
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   // Guard for Server Side Rendering (localStorage only exists in browser)
   const token = safeStorage.getItem('token');
-  
+
   const headers = new Headers(options.headers);
   headers.set('Content-Type', 'application/json');
-  
+
   if (token) {
     headers.set('Authorization', `Bearer ${token}`);
   }
@@ -43,7 +43,9 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
     if (!response.ok) {
       const errorData = data as ApiError;
-      throw new Error(errorData.detail || errorData.title || `Request failed with status ${response.status}`);
+      throw new Error(
+        errorData.detail || errorData.title || `Request failed with status ${response.status}`,
+      );
     }
 
     return data as T;
@@ -57,10 +59,10 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
 export const api = {
   get: <T>(path: string) => request<T>(path, { method: 'GET' }),
-  
-  post: <T>(path: string, body: unknown) => 
-    request<T>(path, { 
-      method: 'POST', 
-      body: JSON.stringify(body) 
+
+  post: <T>(path: string, body: unknown) =>
+    request<T>(path, {
+      method: 'POST',
+      body: JSON.stringify(body),
     }),
 };

@@ -1,6 +1,15 @@
 'use client';
 import React, { useMemo } from 'react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
+
 import { OrderBookSnapshot } from '../../types';
 
 interface DepthChartProps {
@@ -13,14 +22,14 @@ export const DepthChart: React.FC<DepthChartProps> = ({ data }) => {
 
     let currentBidTotal = 0;
     const sortedBids = [...data.bids].sort((a, b) => b.price - a.price);
-    sortedBids.forEach(b => {
+    sortedBids.forEach((b) => {
       currentBidTotal += b.total_vol;
       points.push({ price: b.price, bidVolume: currentBidTotal });
     });
 
     let currentAskTotal = 0;
     const sortedAsks = [...data.asks].sort((a, b) => a.price - b.price);
-    sortedAsks.forEach(a => {
+    sortedAsks.forEach((a) => {
       currentAskTotal += a.total_vol;
       points.push({ price: a.price, askVolume: currentAskTotal });
     });
@@ -83,7 +92,9 @@ export const DepthChart: React.FC<DepthChartProps> = ({ data }) => {
               fontSize={10}
               tickLine={false}
               axisLine={false}
-              tickFormatter={(val) => val >= 1000 ? `${(val / 1000).toFixed(1)}k` : val.toLocaleString()}
+              tickFormatter={(val) =>
+                val >= 1000 ? `${(val / 1000).toFixed(1)}k` : val.toLocaleString()
+              }
             />
             <Tooltip
               contentStyle={{
@@ -94,11 +105,16 @@ export const DepthChart: React.FC<DepthChartProps> = ({ data }) => {
                 fontSize: '11px',
                 fontWeight: '900',
                 color: 'hsl(var(--foreground))',
-                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)'
+                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)',
               }}
               cursor={{ stroke: 'hsl(var(--primary) / 0.2)', strokeWidth: 1 }}
-              formatter={(value: any) => [value.toLocaleString(), 'Volume']}
-              labelFormatter={(label: any) => `Price: ${label.toLocaleString()}`}
+              formatter={(value: unknown) => [
+                typeof value === 'number' ? value.toLocaleString() : String(value),
+                'Volume',
+              ]}
+              labelFormatter={(label: unknown) =>
+                `Price: ${typeof label === 'number' ? label.toLocaleString() : String(label)}`
+              }
             />
             <Area
               type="stepAfter"

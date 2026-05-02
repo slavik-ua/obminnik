@@ -1,7 +1,8 @@
 import React from 'react';
-import { AuthProvider, useAuth } from './context/AuthContext';
+
 import { Login } from './components/Auth/Login';
 import { Dashboard } from './components/Dashboard';
+import { AuthProvider, useAuth } from './context/AuthContext';
 
 // This component checks if we are logged in
 const AppContent: React.FC = () => {

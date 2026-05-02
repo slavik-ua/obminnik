@@ -1,7 +1,8 @@
 'use client';
-import React from 'react';
-import { Trade } from '../../types';
 import { Clock, History } from 'lucide-react';
+import React from 'react';
+
+import { Trade } from '../../types';
 
 interface TradesProps {
   trades: Trade[];
@@ -15,7 +16,9 @@ export const Trades: React.FC<TradesProps> = ({ trades }) => {
           <History className="w-3.5 h-3.5 text-indigo-400" />
           Recent Activity
         </h3>
-        <span className="text-[9px] font-black text-muted-foreground uppercase opacity-60">Real-time Feed</span>
+        <span className="text-[9px] font-black text-muted-foreground uppercase opacity-60">
+          Real-time Feed
+        </span>
       </div>
 
       <div className="flex-1 overflow-hidden flex flex-col font-sans">
@@ -29,19 +32,30 @@ export const Trades: React.FC<TradesProps> = ({ trades }) => {
           {trades.length === 0 && (
             <div className="h-full flex flex-col items-center justify-center text-muted-foreground/30 gap-4 py-20">
               <Clock className="w-10 h-10 opacity-10 animate-pulse" />
-              <p className="text-[10px] font-black uppercase tracking-widest">Waiting for trades...</p>
+              <p className="text-[10px] font-black uppercase tracking-widest">
+                Waiting for trades...
+              </p>
             </div>
           )}
           {trades?.map((t, i) => {
             if (!t) return null;
-            const timestamp = t.timestamp ? new Date(t.timestamp).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '---';
-            
+            const timestamp = t.timestamp
+              ? new Date(t.timestamp).toLocaleTimeString([], {
+                  hour12: false,
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit',
+                })
+              : '---';
+
             return (
-              <div 
-                key={`${t.id || i}-${i}`} 
+              <div
+                key={`${t.id || i}-${i}`}
                 className="grid grid-cols-[1.5fr_1fr_1fr] gap-2 items-center py-2 px-4 border-b border-border/20 last:border-0 hover:bg-white/5 transition-colors group animate-in slide-in-from-top-1 duration-300"
               >
-                <span className={`font-mono font-bold text-[11px] tabular-nums truncate ${t.side === 'buy' ? 'text-buy' : 'text-sell'}`}>
+                <span
+                  className={`font-mono font-bold text-[11px] tabular-nums truncate ${t.side === 'buy' ? 'text-buy' : 'text-sell'}`}
+                >
                   {(t.price || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                 </span>
                 <span className="text-right text-foreground font-mono font-bold text-[11px] tabular-nums truncate">

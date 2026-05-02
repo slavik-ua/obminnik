@@ -1,6 +1,7 @@
 'use client';
+import { ShieldCheck, TrendingDown, TrendingUp, Zap } from 'lucide-react';
 import React, { useState } from 'react';
-import { TrendingUp, TrendingDown, Zap, ShieldCheck } from 'lucide-react';
+
 import { api } from '../../api/client';
 import { OrderSide } from '../../types';
 
@@ -52,19 +53,21 @@ export const OrderForm: React.FC = () => {
       <div className="flex p-1 bg-background/50 backdrop-blur-md rounded-xl mb-8 border border-border shadow-inner">
         <button
           onClick={() => setSide('buy')}
-          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-black text-[11px] uppercase tracking-wider transition-all duration-300 ${side === 'buy'
-            ? 'bg-buy text-white shadow-lg shadow-buy/20 scale-[1.02]'
-            : 'text-muted-foreground hover:text-foreground'
-            }`}
+          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-black text-[11px] uppercase tracking-wider transition-all duration-300 ${
+            side === 'buy'
+              ? 'bg-buy text-white shadow-lg shadow-buy/20 scale-[1.02]'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
         >
           <TrendingUp className="w-3.5 h-3.5" /> BUY
         </button>
         <button
           onClick={() => setSide('sell')}
-          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-black text-[11px] uppercase tracking-wider transition-all duration-300 ${side === 'sell'
-            ? 'bg-sell text-white shadow-lg shadow-sell/20 scale-[1.02]'
-            : 'text-muted-foreground hover:text-foreground'
-            }`}
+          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-black text-[11px] uppercase tracking-wider transition-all duration-300 ${
+            side === 'sell'
+              ? 'bg-sell text-white shadow-lg shadow-sell/20 scale-[1.02]'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
         >
           <TrendingDown className="w-3.5 h-3.5" /> SELL
         </button>
@@ -73,7 +76,9 @@ export const OrderForm: React.FC = () => {
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="space-y-2">
           <div className="flex justify-between items-end">
-            <label className="text-[9px] text-muted-foreground uppercase font-black tracking-widest">Limit Price</label>
+            <label className="text-[9px] text-muted-foreground uppercase font-black tracking-widest">
+              Limit Price
+            </label>
             <span className="text-[9px] text-muted-foreground/60 font-mono font-bold">USD</span>
           </div>
           <div className="relative group">
@@ -91,7 +96,9 @@ export const OrderForm: React.FC = () => {
 
         <div className="space-y-2">
           <div className="flex justify-between items-end">
-            <label className="text-[9px] text-muted-foreground uppercase font-black tracking-widest">Quantity</label>
+            <label className="text-[9px] text-muted-foreground uppercase font-black tracking-widest">
+              Quantity
+            </label>
             <span className="text-[9px] text-muted-foreground/60 font-mono font-bold">UNITS</span>
           </div>
           <input
@@ -115,10 +122,11 @@ export const OrderForm: React.FC = () => {
           <button
             type="submit"
             disabled={loading}
-            className={`w-full py-5 rounded-xl font-black text-xs uppercase tracking-[0.2em] shadow-2xl transition-all active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed group relative overflow-hidden ${side === 'buy'
-              ? 'bg-buy hover:bg-buy/90 shadow-buy/20'
-              : 'bg-sell hover:bg-sell/90 shadow-sell/20'
-              } text-white`}
+            className={`w-full py-5 rounded-xl font-black text-xs uppercase tracking-[0.2em] shadow-2xl transition-all active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed group relative overflow-hidden ${
+              side === 'buy'
+                ? 'bg-buy hover:bg-buy/90 shadow-buy/20'
+                : 'bg-sell hover:bg-sell/90 shadow-sell/20'
+            } text-white`}
           >
             <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
             <span className="relative z-10 flex items-center justify-center gap-2">

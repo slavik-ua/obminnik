@@ -1,6 +1,7 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+
 import { UNAUTHORIZED_EVENT } from '../api/client';
 import { safeStorage } from '../utils/storage';
 
@@ -15,15 +16,12 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Use a function to initialize state safely
-  const [token, setToken] = useState<string | null>(null);
+  const [token, setToken] = useState<string | null>(() => {
+    // Initial load from storage
+    return safeStorage.getItem('token');
+  });
 
   useEffect(() => {
-    // Initial load
-    const savedToken = safeStorage.getItem('token');
-    if (savedToken) {
-      setToken(savedToken);
-    }
-
     // Sync token if it changes in another tab
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'token') {
