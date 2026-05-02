@@ -224,3 +224,10 @@ func (w *OrderWorker) Run(ctx context.Context) {
 		}
 	}
 }
+
+// ResetBook cleanly resets the internal matching engine state
+func (w *OrderWorker) ResetBook() {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.orderBook.Reset()
+}

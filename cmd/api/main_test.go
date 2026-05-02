@@ -52,13 +52,13 @@ func runMigrationsTest(t *testing.T, connStr string) {
 	require.NoError(t, err)
 }
 
-func cleanEnvironment(t *testing.T, pool *pgxpool.Pool, ob *domain.OrderBook, rdb *goredis.Client) {
+func cleanEnvironment(t *testing.T, pool *pgxpool.Pool, worker *services.OrderWorker, rdb *goredis.Client) {
 	ctx := context.Background()
 
 	_, err := pool.Exec(ctx, "TRUNCATE users, orders, trades, outbox CASCADE")
 	require.NoError(t, err)
 
-	ob.Reset()
+	worker.ResetBook()
 	rdb.FlushAll(ctx)
 }
 
@@ -148,7 +148,7 @@ func TestFullApplicationFlow(t *testing.T) {
 	defer server.Close()
 
 	t.Run("Register Login and Order", func(t *testing.T) {
-		cleanEnvironment(t, pool, orderBook, rdb)
+		cleanEnvironment(t, pool, worker, rdb)
 
 		regBody, _ := json.Marshal(map[string]string{
 			"email":    "test@test.com",
@@ -212,7 +212,7 @@ func TestFullApplicationFlow(t *testing.T) {
 	})
 
 	t.Run("Measure Placement and Matching Latency", func(t *testing.T) {
-		cleanEnvironment(t, pool, orderBook, rdb)
+		cleanEnvironment(t, pool, worker, rdb)
 
 		regBody, _ := json.Marshal(map[string]string{"email": "trader1@test.com", "password": "hash"})
 		rr := httptest.NewRecorder()
@@ -254,7 +254,7 @@ func TestFullApplicationFlow(t *testing.T) {
 	})
 
 	t.Run("Full Match: Buy and Sell equal quantity", func(t *testing.T) {
-		cleanEnvironment(t, pool, orderBook, rdb)
+		cleanEnvironment(t, pool, worker, rdb)
 
 		regBody, _ := json.Marshal(map[string]string{"email": "matcher@gmail.com", "password": "hash"})
 		rr := httptest.NewRecorder()
@@ -316,7 +316,7 @@ func TestFullApplicationFlow(t *testing.T) {
 	})
 
 	t.Run("Verify Prometheus Metrics", func(t *testing.T) {
-		cleanEnvironment(t, pool, orderBook, rdb)
+		cleanEnvironment(t, pool, worker, rdb)
 
 		orderBody, _ := json.Marshal(map[string]interface{}{
 			"price": 100, "quantity": 1, "side": "buy",
@@ -357,7 +357,7 @@ func TestFullApplicationFlow(t *testing.T) {
 	})
 
 	t.Run("WebSocket", func(t *testing.T) {
-		cleanEnvironment(t, pool, orderBook, rdb)
+		cleanEnvironment(t, pool, worker, rdb)
 
 		regBody, _ := json.Marshal(map[string]string{"email": "trader1@email.com", "password": "hash"})
 		mux.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("POST", "/register", bytes.NewBuffer(regBody)))
