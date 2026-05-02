@@ -43,10 +43,10 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	if err := h.service.Register(r.Context(), req.Email, req.Password); err != nil {
 		if errors.Is(err, services.ErrUserAlreadyExists) {
-			WriteError(w, "conflict", "Registraion Failed", "Email already in use", http.StatusConflict)
+			WriteError(w, "conflict", "Registration Failed", "Email already in use", http.StatusConflict)
 			return
 		}
-		slog.Error("registation failed", "error", err, "email", req.Email)
+		slog.Error("registration failed", "error", err, "email", req.Email)
 		WriteError(w, "internal-error", "Server Error", "Could not create account", http.StatusInternalServerError)
 		return
 	}
@@ -78,5 +78,5 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	slog.Info("user logged in", "email", req.Email)
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(loginResponse{Token: token})
+	_ = json.NewEncoder(w).Encode(loginResponse{Token: token})
 }

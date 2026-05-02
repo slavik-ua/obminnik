@@ -30,10 +30,10 @@ func (m *MockOrderService) RebuildOrderBook(ctx context.Context) error          
 
 type MockMetrics struct{}
 
-func (m *MockMetrics) RecordOrderPlacement(duration time.Duration, status string) { return }
-func (m *MockMetrics) RecordMatchingLatency(duration time.Duration)               { return }
-func (m *MockMetrics) RecordEndToEndLatency(duration time.Duration)               { return }
-func (m *MockMetrics) RecordTrade(quantity int64)                                 { return }
+func (m *MockMetrics) RecordOrderPlacement(duration time.Duration, status string) {}
+func (m *MockMetrics) RecordMatchingLatency(duration time.Duration)               {}
+func (m *MockMetrics) RecordEndToEndLatency(duration time.Duration)               {}
+func (m *MockMetrics) RecordTrade(quantity int64)                                 {}
 
 type MockGenerator struct {
 	FixedID uuid.UUID
@@ -125,7 +125,7 @@ func TestCreateOrder(t *testing.T) {
 			}
 
 			if rr.Code >= 400 {
-				var apiErr APIError
+				var apiErr Error
 				if err := json.Unmarshal(rr.Body.Bytes(), &apiErr); err != nil {
 					t.Fatalf("failed to unmarshal error response: %v", err)
 				}

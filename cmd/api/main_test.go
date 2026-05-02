@@ -185,7 +185,7 @@ func TestFullApplicationFlow(t *testing.T) {
 
 		assert.Eventually(t, func() bool {
 			rr = httptest.NewRecorder()
-			reqOB := httptest.NewRequest("GET", "/orderbook", nil)
+			reqOB := httptest.NewRequest("GET", "/orderbook", http.NoBody)
 			reqOB.Header.Set("Authorization", "Bearer "+loginResp.Token)
 			mux.ServeHTTP(rr, reqOB)
 
@@ -339,7 +339,7 @@ func TestFullApplicationFlow(t *testing.T) {
 
 		assert.Eventually(t, func() bool {
 			metricsRR := httptest.NewRecorder()
-			mux.ServeHTTP(metricsRR, httptest.NewRequest("GET", "/metrics", nil))
+			mux.ServeHTTP(metricsRR, httptest.NewRequest("GET", "/metrics", http.NoBody))
 
 			body := metricsRR.Body.String()
 
@@ -371,9 +371,12 @@ func TestFullApplicationFlow(t *testing.T) {
 		header := http.Header{}
 		header.Add("Authorization", "Bearer "+loginResp.Token)
 
-		wsConn, _, err := websocket.DefaultDialer.Dial(wsURL, header)
+		wsConn, res, err := websocket.DefaultDialer.Dial(wsURL, header)
 		slog.Error("ASD", "err", err)
 		require.NoError(t, err)
+		if res != nil && res.Body != nil {
+			defer res.Body.Close()
+		}
 		defer wsConn.Close()
 
 		orderBody, _ := json.Marshal(map[string]interface{}{

@@ -75,7 +75,7 @@ func (ob *OrderBook) Snapshot() OrderBookSnapshot {
 // slice to reuse its backing array across calls and avoid per-call heap
 // allocations. The slice is reset to length 0 on entry. The returned slice
 // shares the same backing array
-func (ob *OrderBook) PlaceOrder(id uuid.UUID, userID uuid.UUID, price, quantity int64, side OrderSide, trades []Trade) ([]Trade, OrderStatus) {
+func (ob *OrderBook) PlaceOrder(id, userID uuid.UUID, price, quantity int64, side OrderSide, trades []Trade) ([]Trade, OrderStatus) {
 	order := orderPool.Get().(*Order)
 
 	order.ID = id
@@ -178,7 +178,7 @@ func (ob *OrderBook) matchInternal(taker *Order, trades []Trade) []Trade {
 	return trades
 }
 
-func (ob *OrderBook) bestOposite(taker *Order) (int64, map[int64]*PriceLevel, bool) {
+func (ob *OrderBook) bestOposite(taker *Order) (price int64, levels map[int64]*PriceLevel, ok bool) {
 	if taker.Side == SideBuy {
 		if len(ob.AsksIndex) == 0 {
 			return 0, nil, false
@@ -265,16 +265,9 @@ func (ob *OrderBook) removeOrderInternal(order *Order) {
 }
 
 // Returns the map, sorted index slice pointer, and comparison function
-func (ob *OrderBook) sideData(side OrderSide) (map[int64]*PriceLevel, *[]int64, func(int64, int64) int) {
+func (ob *OrderBook) sideData(side OrderSide) (levels map[int64]*PriceLevel, index *[]int64, sortCmp func(int64, int64) int) {
 	if side == SideBuy {
 		return ob.Bids, &ob.BidsIndex, func(e, t int64) int { return cmp.Compare(t, e) }
 	}
-	return ob.Asks, &ob.AsksIndex, func(e, t int64) int { return cmp.Compare(e, t) }
-}
-
-func min(a, b int64) int64 {
-	if a < b {
-		return a
-	}
-	return b
+	return ob.Asks, &ob.AsksIndex, cmp.Compare
 }

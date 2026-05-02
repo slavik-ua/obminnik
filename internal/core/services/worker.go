@@ -71,7 +71,7 @@ func (w *OrderWorker) broadcastAndCache(ctx context.Context) {
 		return
 	}
 
-	w.broadcaster.Broadcast(ctx, ports.BroadcastEvent{
+	_ = w.broadcaster.Broadcast(ctx, ports.BroadcastEvent{
 		Type:    "ORDERBOOK_UPDATE",
 		Payload: payload,
 	})
@@ -79,17 +79,6 @@ func (w *OrderWorker) broadcastAndCache(ctx context.Context) {
 	if err := w.cache.Set(ctx, payload); err != nil {
 		slog.Error("worker: cache update failed", "error", err)
 	}
-}
-
-func (w *OrderWorker) refreshCache(ctx context.Context, obPayload []byte) error {
-	// if err := w.cache.Invalidate(ctx); err != nil {
-	// 	slog.Error("worker: cache invalidation failed", "error", err)
-	// }
-	if err := w.cache.Set(ctx, obPayload); err != nil {
-		slog.Error("worker: cache set failed", "error", err)
-		return err
-	}
-	return nil
 }
 
 func (w *OrderWorker) handlePlaceOrder(ctx context.Context, payload []byte) {
@@ -150,7 +139,7 @@ func (w *OrderWorker) handlePlaceOrder(ctx context.Context, payload []byte) {
 	if len(trades) > 0 {
 		go func(t []domain.Trade) {
 			tradePayload, _ := json.Marshal(t)
-			w.broadcaster.Broadcast(context.Background(), ports.BroadcastEvent{
+			_ = w.broadcaster.Broadcast(context.Background(), ports.BroadcastEvent{
 				Type:    "TRADES_EXECUTED",
 				Payload: tradePayload,
 			})
@@ -161,15 +150,6 @@ func (w *OrderWorker) handlePlaceOrder(ctx context.Context, payload []byte) {
 
 	w.needsRefresh.Store(true)
 
-	// snapshot := w.orderBook.Snapshot()
-	// obPayload, err := json.Marshal(snapshot)
-	// if err == nil {
-	// 	w.broadcaster.Broadcast(ctx, ports.BroadcastEvent{
-	// 		Type:    "ORDERBOOK_UPDATE",
-	// 		Payload: obPayload,
-	// 	})
-	// 	w.refreshCache(ctx, obPayload)
-	// }
 	w.metrics.RecordEndToEndLatency(time.Since(time.Unix(0, order.CreatedAt)))
 }
 
@@ -202,6 +182,7 @@ func (w *OrderWorker) handleCancelOrder(ctx context.Context, payload json.RawMes
 	}
 }
 
+//nolint:gocritic // msg is passed by value from kafka-go
 func (w *OrderWorker) handleMessages(ctx context.Context, msg kafka.Message) {
 	var eventType string
 	for _, h := range msg.Headers {

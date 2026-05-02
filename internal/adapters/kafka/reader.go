@@ -7,12 +7,12 @@ import (
 	"github.com/segmentio/kafka-go"
 )
 
-type KafkaReader struct {
+type Reader struct {
 	reader *kafka.Reader
 }
 
-func NewKafkaReader(brokerAddr, topic, groupID string) *KafkaReader {
-	return &KafkaReader{
+func NewKafkaReader(brokerAddr, topic, groupID string) *Reader {
+	return &Reader{
 		reader: kafka.NewReader(kafka.ReaderConfig{
 			Brokers:        []string{brokerAddr},
 			Topic:          topic,
@@ -26,14 +26,15 @@ func NewKafkaReader(brokerAddr, topic, groupID string) *KafkaReader {
 	}
 }
 
-func (r *KafkaReader) FetchMessage(ctx context.Context) (kafka.Message, error) {
+func (r *Reader) FetchMessage(ctx context.Context) (kafka.Message, error) {
 	return r.reader.FetchMessage(ctx)
 }
 
-func (r *KafkaReader) CommitMessage(ctx context.Context, msg kafka.Message) error {
+//nolint:gocritic // msg is passed by value because kafka-go requires it
+func (r *Reader) CommitMessage(ctx context.Context, msg kafka.Message) error {
 	return r.reader.CommitMessages(ctx, msg)
 }
 
-func (r *KafkaReader) Close() error {
+func (r *Reader) Close() error {
 	return r.reader.Close()
 }

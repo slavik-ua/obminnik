@@ -113,6 +113,10 @@ func JWTMiddleware(secret string) func(http.Handler) http.Handler {
 			}
 
 			sub, ok := claims["sub"].(string)
+			if !ok {
+				WriteError(w, "invalid-subject", "Unauthorized", "Token subject is not a string", http.StatusUnauthorized)
+				return
+			}
 			userID, err := uuid.Parse(sub)
 			if err != nil {
 				WriteError(w, "invalid-subject", "Unauthorized", "Token subject is not a valid UUID", http.StatusUnauthorized)

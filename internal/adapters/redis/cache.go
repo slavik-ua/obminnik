@@ -19,8 +19,8 @@ func NewOrderBookRedisCache(client *redis.Client) *OrderBookRedisCache {
 	return &OrderBookRedisCache{client: client}
 }
 
-func (r *OrderBookRedisCache) Get(ctx context.Context) ([]byte, bool, error) {
-	data, err := r.client.Get(ctx, orderBookKey).Bytes()
+func (r *OrderBookRedisCache) Get(ctx context.Context) (data []byte, found bool, err error) {
+	data, err = r.client.Get(ctx, orderBookKey).Bytes()
 	if errors.Is(err, redis.Nil) {
 		return nil, false, nil
 	}

@@ -12,7 +12,6 @@ type PrometheusMetrics struct {
 	matchingLatency  prometheus.Histogram
 	e2eLatency       prometheus.Histogram
 	tradesTotal      prometheus.Counter
-	orderBookDepth   *prometheus.GaugeVec
 }
 
 func NewPrometheusMetrics() *PrometheusMetrics {
@@ -24,8 +23,9 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 		}, []string{"status"}),
 
 		matchingLatency: promauto.NewHistogram(prometheus.HistogramOpts{
-			Name:    "exchange_matching_engine_latency_seconds",
-			Help:    "Time taken for the engine to process a match in memory",
+			Name: "exchange_matching_engine_latency_seconds",
+			Help: "Time taken for the engine to process a match in memory",
+			//nolint:forbidigo // Prometheus requires floats for buckets
 			Buckets: []float64{0.001, 0.005, 0.01, 0.025, 0.05, 0.1},
 		}),
 
@@ -55,5 +55,6 @@ func (p *PrometheusMetrics) RecordEndToEndLatency(d time.Duration) {
 }
 
 func (p *PrometheusMetrics) RecordTrade(qty int64) {
+	//nolint:forbidigo // Prometheus requires float64 for Add
 	p.tradesTotal.Add(float64(qty))
 }

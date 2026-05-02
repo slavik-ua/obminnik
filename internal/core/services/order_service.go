@@ -78,48 +78,6 @@ func (s *OrderService) PlaceOrder(ctx context.Context, order *domain.Order) erro
 	}
 
 	return err
-	/*
-		err := s.store.ExecTx(ctx, func(q *db.Queries) error {
-			if err := s.orderRepo.Create(ctx, q, order); err != nil {
-				return err
-			}
-
-			for i := range trades {
-				if err := s.tradeRepo.Create(ctx, q, &trades[i]); err != nil {
-					return err
-				}
-
-				payload, err := json.Marshal(trades[i])
-				if err != nil {
-					return fmt.Errorf("marshal trade event: %w", err)
-				}
-
-				event := &domain.OutboxEvent{
-					ID:      uuid.New(),
-					Type:    "TradeExecuted",
-					Payload: payload,
-				}
-				if err := s.outboxRepo.AddEvent(ctx, q, event); err != nil {
-					return err
-				}
-			}
-
-			return nil
-		})
-
-		if err != nil {
-			return nil, err
-		}
-
-		if err := s.cache.Invalidate(ctx); err != nil {
-			slog.Warn("cache invalidation failed after order placement",
-				"error", err,
-				"order_id", order.ID,
-			)
-		}
-
-		return trades, err
-	*/
 }
 
 func (s *OrderService) CancelOrder(ctx context.Context, id uuid.UUID) error {
@@ -136,30 +94,6 @@ func (s *OrderService) CancelOrder(ctx context.Context, id uuid.UUID) error {
 		}
 		return s.outboxRepo.AddEvent(ctx, q, event)
 	})
-
-	/*
-		cancelled := s.book.CancelOrder(id)
-		if !cancelled {
-			return fmt.Errorf("order not found: %s", id)
-		}
-
-		err := s.store.ExecTx(ctx, func(q *db.Queries) error {
-			return s.orderRepo.Cancel(ctx, q, id)
-		})
-
-		if err != nil {
-			return err
-		}
-
-		if err := s.cache.Invalidate(ctx); err != nil {
-			slog.Warn("cache invalidation failed after cancel",
-				"error", err,
-				"order_id", id,
-			)
-		}
-
-		return nil
-	*/
 }
 
 func (s *OrderService) GetOrderBook(ctx context.Context) ([]byte, error) {
@@ -174,20 +108,6 @@ func (s *OrderService) GetOrderBook(ctx context.Context) ([]byte, error) {
 	}
 	slog.Info("orderService: cache miss")
 	return nil, err
-
-	/*
-		snapshot := s.book.Snapshot()
-		data, err = json.Marshal(snapshot)
-		if err != nil {
-			return nil, fmt.Errorf("marshal orderbook: %w", err)
-		}
-
-		if err := s.cache.Set(ctx, data); err != nil {
-			slog.Warn("failed to populate cache", "error", err)
-		}
-
-		return data, nil
-	*/
 }
 
 func (s *OrderService) RebuildOrderBook(ctx context.Context) error {

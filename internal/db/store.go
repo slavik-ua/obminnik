@@ -23,7 +23,7 @@ func (s *Store) ExecTx(ctx context.Context, fn func(*Queries) error) error {
 		return err
 	}
 
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	q := New(tx)
 	err = fn(q)

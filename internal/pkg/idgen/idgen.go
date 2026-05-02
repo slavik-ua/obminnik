@@ -34,6 +34,7 @@ func (g *Generator) generateV7() uuid.UUID {
 	var res [16]byte
 
 	// Timestamp (48 bit)
+	//nolint:gosec // UnixMilli is always positive for current times
 	now := uint64(time.Now().UnixMilli())
 	res[0] = byte(now >> 40)
 	res[1] = byte(now >> 32)
@@ -43,9 +44,11 @@ func (g *Generator) generateV7() uuid.UUID {
 	res[5] = byte(now)
 
 	// We need 12 bits of randomness + 4 bits for the version
+	//nolint:gosec // Not used for security-sensitive operations
 	v7randA := uint16(rand.Uint32()&0x0fff) | 0x7000
 	binary.BigEndian.PutUint16(res[6:8], v7randA)
 
+	//nolint:gosec // Not used for security-sensitive operations
 	binary.BigEndian.PutUint64(res[8:], rand.Uint64())
 
 	// Then we force the top 2 bits of Byte 8 to be 10

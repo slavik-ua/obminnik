@@ -68,7 +68,7 @@ func loadConfig() config {
 	}
 }
 
-func createTopic(ctx context.Context, brokerAddr string, topic string) error {
+func createTopic(ctx context.Context, brokerAddr, topic string) error {
 	conn, err := kafka.DialContext(ctx, "tcp", brokerAddr)
 	if err != nil {
 		return err
@@ -145,8 +145,8 @@ func run() error {
 	}
 	defer pool.Close()
 
-	if err := runMigrations(cfg.DBURL); err != nil {
-		return err
+	if errMigrate := runMigrations(cfg.DBURL); errMigrate != nil {
+		return errMigrate
 	}
 
 	redisClient := goredis.NewClient(&goredis.Options{Addr: cfg.RedisURL})

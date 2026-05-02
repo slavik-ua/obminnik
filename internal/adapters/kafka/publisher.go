@@ -9,12 +9,12 @@ import (
 	"simple-orderbook/internal/core/domain"
 )
 
-type KafkaWriter struct {
+type Writer struct {
 	writer *kafka.Writer
 }
 
-func NewKafkaWriter(brokerAddr string, topic string) *KafkaWriter {
-	return &KafkaWriter{
+func NewKafkaWriter(brokerAddr, topic string) *Writer {
+	return &Writer{
 		writer: &kafka.Writer{
 			Addr:         kafka.TCP(brokerAddr),
 			Topic:        topic,
@@ -31,7 +31,7 @@ func NewKafkaWriter(brokerAddr string, topic string) *KafkaWriter {
 	}
 }
 
-func (p *KafkaWriter) Publish(ctx context.Context, event *domain.OutboxEvent) error {
+func (p *Writer) Publish(ctx context.Context, event *domain.OutboxEvent) error {
 	return p.writer.WriteMessages(ctx, kafka.Message{
 		Key:   []byte("market-1"),
 		Value: event.Payload,
@@ -42,6 +42,6 @@ func (p *KafkaWriter) Publish(ctx context.Context, event *domain.OutboxEvent) er
 	})
 }
 
-func (p *KafkaWriter) Close() error {
+func (p *Writer) Close() error {
 	return p.writer.Close()
 }

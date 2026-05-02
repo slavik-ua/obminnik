@@ -5,7 +5,7 @@ import (
 	"net/http"
 )
 
-type APIError struct {
+type Error struct {
 	Type   string `json:"type"`
 	Title  string `json:"title"`
 	Detail string `json:"detail,omitempty"`
@@ -16,7 +16,7 @@ func WriteError(w http.ResponseWriter, errorType, title, detail string, status i
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 
-	json.NewEncoder(w).Encode(APIError{
+	_ = json.NewEncoder(w).Encode(Error{
 		Type:   errorType,
 		Title:  title,
 		Detail: detail,

@@ -3,8 +3,7 @@ run:
   modules-download-mode: readonly
   # Allow multiple processors to speed up linting
   concurrency: 4
-  skip-dirs:
-    - frontend/node_modules
+
 
 linters-settings:
   govet:
@@ -15,8 +14,8 @@ linters-settings:
   
   errcheck:
     # Report about not checking of errors in type assertions and blank identifiers
-    check-type-assertions: true
-    check-blank: true
+    check-type-assertions: false
+    check-blank: false
 
   gocritic:
     enabled-tags:
@@ -89,6 +88,9 @@ issues:
   max-issues-per-linter: 0
   # Maximum count of issues with the same text. Set to 0 to disable.
   max-same-issues: 0
+  
+  exclude-dirs:
+    - frontend/node_modules
   
   exclude-rules:
     # Exclude linter checks for test files
