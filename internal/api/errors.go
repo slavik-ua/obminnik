@@ -23,3 +23,7 @@ func WriteError(w http.ResponseWriter, errorType, title, detail string, status i
 		Status: status,
 	})
 }
+
+func WriteUnauthorizedError(w http.ResponseWriter) {
+	WriteError(w, "unauthorized", "Unauthorized", "User ID not found in session", http.StatusUnauthorized)
+}

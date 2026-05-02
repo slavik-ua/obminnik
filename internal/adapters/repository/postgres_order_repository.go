@@ -133,3 +133,42 @@ func (r *PostgresOrderRepository) ListActiveBySide(ctx context.Context, side db.
 
 	return orders, nil
 }
+func mapDBToStatus(status db.OrderStatus) domain.OrderStatus {
+	switch status {
+	case db.OrderStatusPLACED:
+		return domain.StatusPlaced
+	case db.OrderStatusPARTIAL:
+		return domain.StatusPartial
+	case db.OrderStatusFILLED:
+		return domain.StatusFilled
+	case db.OrderStatusCANCELLED:
+		return domain.StatusCancelled
+	case db.OrderStatusREJECTED:
+		return domain.StatusRejected
+	default:
+		return domain.StatusNew
+	}
+}
+
+func (r *PostgresOrderRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Order, error) {
+	row, err := r.store.GetOrder(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	side, err := toDomainSide(row.Side)
+	if err != nil {
+		return nil, err
+	}
+
+	return &domain.Order{
+		ID:                row.ID,
+		UserID:            row.UserID,
+		Price:             row.Price,
+		Quantity:          row.Quantity,
+		RemainingQuantity: row.RemainingQuantity,
+		CreatedAt:         row.CreatedAt.Time.UnixNano(),
+		Side:              side,
+		Status:            mapDBToStatus(row.Status),
+	}, nil
+}

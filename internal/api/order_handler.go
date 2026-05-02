@@ -44,6 +44,36 @@ func (h *OrderHandler) GetOrderBook(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(data)
 }
 
+func (h *OrderHandler) Deposit(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Asset  string `json:"asset"`
+		Amount int64  `json:"amount"`
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, 1048576)
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+
+	if err := dec.Decode(&req); err != nil {
+		WriteError(w, "invalid-json", "Bad request", "Invalid JSON body", http.StatusBadRequest)
+		return
+	}
+
+	userID, ok := r.Context().Value(UserIDKey).(uuid.UUID)
+	if !ok {
+		WriteUnauthorizedError(w)
+		return
+	}
+
+	err := h.service.Deposit(r.Context(), userID, req.Asset, req.Amount)
+	if err != nil {
+		WriteError(w, "internal-error", "Deposit Failed", err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
 func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 
@@ -70,7 +100,7 @@ func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 
 	userID, ok := r.Context().Value(UserIDKey).(uuid.UUID)
 	if !ok {
-		WriteError(w, "unauthorized", "Unauthorized", "User ID not found in session", http.StatusUnauthorized)
+		WriteUnauthorizedError(w)
 		return
 	}
 
@@ -105,4 +135,30 @@ func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(newOrder)
+}
+
+func (h *OrderHandler) CancelOrder(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		OrderID uuid.UUID `json:"order_id"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		WriteError(w, "invalid-json", "Bad Request", "Invalid JSON body", http.StatusBadRequest)
+		return
+	}
+
+	userID, ok := r.Context().Value(UserIDKey).(uuid.UUID)
+	if !ok {
+		WriteUnauthorizedError(w)
+		return
+	}
+
+	err := h.service.CancelOrder(r.Context(), userID, req.OrderID)
+	if err != nil {
+		slog.Error("failed to cancel order", "error", err, "user_id", userID, "order_id", req.OrderID)
+		WriteError(w, "internal-error", "Cancellation Failed", err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }

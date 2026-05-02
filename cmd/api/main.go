@@ -126,6 +126,8 @@ func setupRouter(orderSvc *services.OrderService, authSvc *services.AuthService,
 	})
 
 	mux.Handle("POST /order", protected(limited(http.HandlerFunc(orderHandler.CreateOrder))))
+	mux.Handle("POST /order/cancel", protected(limited(http.HandlerFunc(orderHandler.CancelOrder))))
+	mux.Handle("POST /deposit", protected(limited(http.HandlerFunc(orderHandler.Deposit))))
 	mux.Handle("GET /orderbook", protected(limited(http.HandlerFunc(orderHandler.GetOrderBook))))
 	mux.Handle("/ws", protected(http.HandlerFunc(wsHandler)))
 
@@ -157,6 +159,7 @@ func run() error {
 	store := db.NewStore(pool)
 	orderRepo := repository.NewPostgresOrderRepository(store)
 	tradeRepo := repository.NewPostgresTradeRepository(store)
+	accountRepo := repository.NewPostgresAccountRepository(store, fastGen)
 	outboxRepo := repository.NewPostgresOutboxRepository(store)
 	authRepo := repository.NewPostgresAuthRepository(store)
 
@@ -187,9 +190,11 @@ func run() error {
 
 	wsHub := ws.NewHub(redisClient)
 
-	worker := services.NewOrderWorker(reader, orderBook, cache, orderRepo, tradeRepo, promMetrics, wsHub, store)
+	balanceCache := domain.NewBalanceCache()
 
-	orderSvc := services.NewOrderService(store, orderRepo, outboxRepo, orderBook, cache, relay, fastGen)
+	worker := services.NewOrderWorker(reader, orderBook, cache, orderRepo, tradeRepo, accountRepo, balanceCache, promMetrics, wsHub, store)
+
+	orderSvc := services.NewOrderService(store, orderRepo, accountRepo, outboxRepo, orderBook, cache, relay, fastGen)
 
 	if err := orderSvc.RebuildOrderBook(ctx); err != nil {
 		return fmt.Errorf("failed to rebuild order book: %w", err)

@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -15,9 +16,10 @@ import (
 )
 
 type OrderService struct {
-	orderRepo  ports.OrderRepository
-	outboxRepo ports.OutboxRepository
-	store      *db.Store
+	orderRepo   ports.OrderRepository
+	accountRepo ports.AccountRepository
+	outboxRepo  ports.OutboxRepository
+	store       *db.Store
 
 	book     *domain.OrderBook
 	cache    ports.OrderBookCache
@@ -29,6 +31,7 @@ type OrderService struct {
 func NewOrderService(
 	store *db.Store,
 	orderRepo ports.OrderRepository,
+	accountRepo ports.AccountRepository,
 	outboxRepo ports.OutboxRepository,
 	book *domain.OrderBook,
 	cache ports.OrderBookCache,
@@ -36,14 +39,48 @@ func NewOrderService(
 	idGen domain.IDGenerator,
 ) *OrderService {
 	return &OrderService{
-		store:      store,
-		orderRepo:  orderRepo,
-		outboxRepo: outboxRepo,
-		book:       book,
-		cache:      cache,
-		notifier:   notifier,
-		idGen:      idGen,
+		store:       store,
+		orderRepo:   orderRepo,
+		accountRepo: accountRepo,
+		outboxRepo:  outboxRepo,
+		book:        book,
+		cache:       cache,
+		notifier:    notifier,
+		idGen:       idGen,
 	}
+}
+
+func (s *OrderService) CancelOrder(ctx context.Context, userID, orderID uuid.UUID) error {
+	return s.store.ExecTx(ctx, func(q *db.Queries) error {
+		// Check if order exists and belongs to user
+		order, err := s.orderRepo.GetByID(ctx, orderID)
+		if err != nil {
+			return err
+		}
+		if order.UserID != userID {
+			return errors.New("unauthorized: order does not belong to user")
+		}
+		if order.Status != domain.StatusPlaced && order.Status != domain.StatusPartial && order.Status != domain.StatusNew {
+			return errors.New("cannot cancel order in current status")
+		}
+
+		payload, _ := json.Marshal(map[string]interface{}{
+			"order_id": orderID,
+		})
+
+		event := &domain.OutboxEvent{
+			ID:      s.idGen.Next(),
+			Type:    "OrderCancelRequested",
+			Payload: payload,
+		}
+
+		if err := s.outboxRepo.AddEvent(ctx, q, event); err != nil {
+			return err
+		}
+
+		s.notifier.Notify()
+		return nil
+	})
 }
 
 func (s *OrderService) PlaceOrder(ctx context.Context, order *domain.Order) error {
@@ -80,22 +117,6 @@ func (s *OrderService) PlaceOrder(ctx context.Context, order *domain.Order) erro
 	return err
 }
 
-func (s *OrderService) CancelOrder(ctx context.Context, id uuid.UUID) error {
-	return s.store.ExecTx(ctx, func(q *db.Queries) error {
-		payload, err := json.Marshal(map[string]interface{}{"order_id": id})
-		if err != nil {
-			return err
-		}
-
-		event := &domain.OutboxEvent{
-			ID:      s.idGen.Next(),
-			Type:    "OrderCancelRequested",
-			Payload: payload,
-		}
-		return s.outboxRepo.AddEvent(ctx, q, event)
-	})
-}
-
 func (s *OrderService) GetOrderBook(ctx context.Context) ([]byte, error) {
 	data, found, err := s.cache.Get(ctx)
 	if err != nil {
@@ -108,6 +129,34 @@ func (s *OrderService) GetOrderBook(ctx context.Context) ([]byte, error) {
 	}
 	slog.Info("orderService: cache miss")
 	return nil, err
+}
+
+func (s *OrderService) Deposit(ctx context.Context, userID uuid.UUID, asset string, amount int64) error {
+	err := s.store.ExecTx(ctx, func(q *db.Queries) error {
+		err := s.accountRepo.Deposit(ctx, q, userID, asset, amount)
+		if err != nil {
+			return err
+		}
+
+		payload, _ := json.Marshal(map[string]interface{}{
+			"user_id": userID,
+			"asset":   asset,
+			"amount":  amount,
+		})
+
+		event := &domain.OutboxEvent{
+			ID:      s.idGen.Next(),
+			Type:    "DepositCreated",
+			Payload: payload,
+		}
+
+		return s.outboxRepo.AddEvent(ctx, q, event)
+	})
+
+	if err == nil {
+		s.notifier.Notify()
+	}
+	return err
 }
 
 func (s *OrderService) RebuildOrderBook(ctx context.Context) error {

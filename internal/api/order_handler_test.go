@@ -16,17 +16,25 @@ import (
 
 type MockOrderService struct {
 	PlaceOrderFunc   func(ctx context.Context, order *domain.Order) error
-	CancelOrderFunc  func(ctx context.Context, id uuid.UUID) error
+	CancelOrderFunc  func(ctx context.Context, userID uuid.UUID, id uuid.UUID) error
 	GetOrderBookFunc func(ctx context.Context) ([]byte, error)
+	DepositFunc      func(ctx context.Context, userID uuid.UUID, asset string, amount int64) error
 }
 
 func (m *MockOrderService) PlaceOrder(ctx context.Context, order *domain.Order) error {
 	return m.PlaceOrderFunc(ctx, order)
 }
 
-func (m *MockOrderService) CancelOrder(ctx context.Context, id uuid.UUID) error { return nil }
-func (m *MockOrderService) GetOrderBook(ctx context.Context) ([]byte, error)    { return nil, nil }
-func (m *MockOrderService) RebuildOrderBook(ctx context.Context) error          { return nil }
+func (m *MockOrderService) CancelOrder(ctx context.Context, userID, id uuid.UUID) error {
+	return m.CancelOrderFunc(ctx, userID, id)
+}
+func (m *MockOrderService) GetOrderBook(ctx context.Context) ([]byte, error) {
+	return m.GetOrderBookFunc(ctx)
+}
+func (m *MockOrderService) RebuildOrderBook(ctx context.Context) error { return nil }
+func (m *MockOrderService) Deposit(ctx context.Context, userID uuid.UUID, asset string, amount int64) error {
+	return m.DepositFunc(ctx, userID, asset, amount)
+}
 
 type MockMetrics struct{}
 
@@ -97,11 +105,14 @@ func TestCreateOrder(t *testing.T) {
 				PlaceOrderFunc: func(ctx context.Context, order *domain.Order) error {
 					return c.mockServiceErr
 				},
-				CancelOrderFunc: func(ctx context.Context, id uuid.UUID) error {
+				CancelOrderFunc: func(ctx context.Context, userID uuid.UUID, id uuid.UUID) error {
 					return c.mockServiceErr
 				},
 				GetOrderBookFunc: func(ctx context.Context) ([]byte, error) {
 					return nil, c.mockServiceErr
+				},
+				DepositFunc: func(ctx context.Context, userID uuid.UUID, asset string, amount int64) error {
+					return c.mockServiceErr
 				},
 			}
 

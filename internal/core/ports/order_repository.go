@@ -15,4 +15,5 @@ type OrderRepository interface {
 	UpdateStatus(ctx context.Context, q *db.Queries, id uuid.UUID, status domain.OrderStatus) error
 	UpdateOrderStatusBatch(ctx context.Context, q *db.Queries, makerIDs []uuid.UUID, makerStatuses []domain.OrderStatus) error
 	ListActiveBySide(ctx context.Context, side db.OrderSide) ([]*domain.Order, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.Order, error)
 }

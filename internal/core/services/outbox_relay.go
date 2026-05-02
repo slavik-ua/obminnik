@@ -44,44 +44,43 @@ func (r *OutboxRelay) Run(ctx context.Context) {
 			slog.Info("outbox relay shutting down")
 			return
 		case <-r.notify:
-		case <-time.After(10 * time.Millisecond):
+			slog.Debug("outbox relay notified")
+		case <-time.After(50 * time.Millisecond):
 		}
 	}
 }
 
 func (r *OutboxRelay) process(ctx context.Context) (int, error) {
-	events, err := r.outboxRepo.FetchUnprocessed(ctx, 100)
-	if err != nil {
-		slog.Error("outbox relay: fetch failed", "error", err)
-		return 0, err
-	}
-
-	if len(events) == 0 {
-		return 0, nil
-	}
-
-	processedIDs := make([]uuid.UUID, 0, len(events))
-
-	for _, event := range events {
-		if err := r.publisher.Publish(ctx, event); err != nil {
-			slog.Error("outbox relay: publish failed",
-				"event_id", event.ID,
-				"error", err,
-			)
-			continue
+	// Retry once for visibility if we find nothing
+	for retry := 0; retry < 2; retry++ {
+		events, err := r.outboxRepo.FetchUnprocessed(ctx, 100)
+		if err != nil {
+			slog.Error("outbox relay: fetch failed", "error", err)
+			return 0, err
 		}
 
-		processedIDs = append(processedIDs, event.ID)
-	}
+		if len(events) > 0 {
+			processedIDs := make([]uuid.UUID, 0, len(events))
+			for _, event := range events {
+				if err := r.publisher.Publish(ctx, event); err != nil {
+					slog.Error("outbox relay: publish failed", "event_id", event.ID, "error", err)
+					continue
+				}
+				processedIDs = append(processedIDs, event.ID)
+			}
+			if len(processedIDs) > 0 {
+				if err := r.outboxRepo.MarkProcessedBatch(ctx, processedIDs); err != nil {
+					slog.Error("outbox relay: batch mark failed", "error", err)
+					return len(processedIDs), err
+				}
+			}
+			return len(processedIDs), nil
+		}
 
-	if len(processedIDs) > 0 {
-		if err := r.outboxRepo.MarkProcessedBatch(ctx, processedIDs); err != nil {
-			slog.Error("outbox relay: batch mark failed",
-				"error", err,
-			)
-			return len(processedIDs), err
+		if retry == 0 {
+			// Small wait before retry to allow DB commit visibility
+			time.Sleep(5 * time.Millisecond)
 		}
 	}
-
-	return len(processedIDs), nil
+	return 0, nil
 }
