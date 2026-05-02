@@ -1,0 +1,99 @@
+run:
+  timeout: 5m
+  modules-download-mode: readonly
+  # Allow multiple processors to speed up linting
+  concurrency: 4
+  skip-dirs:
+    - frontend/node_modules
+
+linters-settings:
+  govet:
+    # Check for variable shadowing—lethal in matching loops
+    enable-all: true
+    disable:
+      - fieldalignment # Only enable if you are micro-optimizing struct padding for cache lines
+  
+  errcheck:
+    # Report about not checking of errors in type assertions and blank identifiers
+    check-type-assertions: true
+    check-blank: true
+
+  gocritic:
+    enabled-tags:
+      - performance
+      - style
+      - diagnostic
+    settings:
+      captLocal:
+        paramsOnly: true
+
+  revive:
+    ignore-generated-header: true
+    severity: warning
+    rules:
+      - name: atomic
+      - name: error-return
+      - name: error-strings
+      - name: error-naming
+      - name: exported
+      - name: indent-error-flow
+      - name: package-comments
+      - name: unused-parameter
+
+  forbidigo:
+    # Enforce Fixed-Point Arithmetic. 
+    # Forbid float usage in core domain logic to prevent precision loss.
+    forbid:
+      - '^float(32|64)$'
+      - 'fmt\.Print.*' # Use slog instead
+    exclude_directories:
+      - "internal/adapters/metrics" # Prometheus often requires floats for histograms
+      - "cmd/api" # API responses might occasionally use floats for display only
+
+  prealloc:
+    # Warn about slice declarations that could be pre-allocated.
+    # Essential for HFT to reduce GC pressure and latency spikes.
+    simple: true
+    range-loops: true
+    for-loops: true
+
+  gosec:
+    # Security scanner for common Go vulnerabilities (SQL injection, weak crypto)
+    excludes:
+      - G104 # Already covered by errcheck
+
+linters:
+  disable-all: true
+  enable:
+    # The "Must-Haves"
+    - errcheck      # Checking for unhandled errors
+    - govet         # Standard Go tool analysis
+    - staticcheck   # Advanced static analysis
+    - unused        # Finding dead code
+    - gosimple      # Code simplification
+    - ineffassign   # Detect assignments that aren't used
+    
+    # The "Financial/HFT" Layer
+    - revive        # General purpose linter replacement for golint
+    - gocritic      # Deep code analysis for bugs and performance
+    - gosec         # Security auditing
+    - prealloc      # Memory allocation efficiency
+    - forbidigo     # Preventing usage of floats/dangerous primitives
+    - bodyclose     # Ensure HTTP response bodies are closed (prevents leaks)
+    - noctx         # Check for context passing
+    - misspell      # Because errors in logs look unprofessional
+    - whitespace    # Code cleanliness
+
+issues:
+  # Maximum issues count per one linter. Set to 0 to disable.
+  max-issues-per-linter: 0
+  # Maximum count of issues with the same text. Set to 0 to disable.
+  max-same-issues: 0
+  
+  exclude-rules:
+    # Exclude linter checks for test files
+    - path: _test\.go
+      linters:
+        - errcheck
+        - gosec
+        - revive

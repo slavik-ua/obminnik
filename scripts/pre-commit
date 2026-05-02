@@ -1,0 +1,61 @@
+#!/bin/bash
+
+# ANSI colors for better visibility
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+NC='\033[0m' # No Color
+
+echo -e "${GREEN}--- 🛠️  Starting Pre-Commit Pipeline ---${NC}"
+
+# 1. Format Check
+STAGED_GO_FILES=$(git diff --cached --name-only --diff-filter=ACMR | grep '\.go$')
+if [ -n "$STAGED_GO_FILES" ]; then
+    for FILE in $STAGED_GO_FILES; do
+        go fmt "$FILE"
+        git add "$FILE"
+    done
+    echo "✅ Files formatted."
+fi
+
+# 2. Mod Tidy Check
+go mod tidy
+if ! git diff --exit-code go.mod go.sum > /dev/null; then
+    echo -e "${RED}❌ go.mod or go.sum is not tidy. Run 'go mod tidy' and stage changes.${NC}"
+    exit 1
+fi
+echo "✅ go.mod is tidy."
+
+# 3. Linting
+if ! command -v golangci-lint &> /dev/null; then
+    echo -e "${RED}❌ golangci-lint not found. Run 'make install-tools'.${NC}"
+    exit 1
+fi
+golangci-lint run ./...
+if [ $? -ne 0 ]; then
+    echo -e "${RED}❌ Linting failed.${NC}"
+    exit 1
+fi
+echo "✅ Linting passed."
+
+# 4. Security Scan
+if ! command -v govulncheck &> /dev/null; then
+    echo -e "${RED}❌ govulncheck not found. Run 'make install-tools'.${NC}"
+    exit 1
+fi
+govulncheck ./...
+if [ $? -ne 0 ]; then
+    echo -e "${RED}❌ Vulnerabilities found.${NC}"
+    exit 1
+fi
+echo "✅ Security scan passed."
+
+# 5. Unit Tests
+make test-unit
+if [ $? -ne 0 ]; then
+    echo -e "${RED}❌ Unit tests failed.${NC}"
+    exit 1
+fi
+echo "✅ Unit tests passed."
+
+echo -e "${GREEN}--- 🚀 Ready to commit! ---${NC}"
+exit 0
