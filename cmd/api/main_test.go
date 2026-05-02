@@ -55,7 +55,7 @@ func runMigrationsTest(t *testing.T, connStr string) {
 func cleanEnvironment(t *testing.T, pool *pgxpool.Pool, ob *domain.OrderBook, rdb *goredis.Client) {
 	ctx := context.Background()
 
-	_, err := pool.Exec(ctx, "TRUNCATE orders, trades, outbox CASCADE")
+	_, err := pool.Exec(ctx, "TRUNCATE users, orders, trades, outbox CASCADE")
 	require.NoError(t, err)
 
 	ob.Reset()
