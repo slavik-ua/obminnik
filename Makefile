@@ -154,6 +154,17 @@ docker-down:
 	@echo "Stopping infrastructure..."
 	docker-compose down
 
+.PHONY: docker-refresh
+docker-refresh:
+	@echo "Performing clean slate refresh (wiping volumes)..."
+	docker-compose down -v
+	docker-compose up -d --build
+
+.PHONY: load-test
+load-test:
+	@echo "Starting load test..."
+	python3 load_test/load_test.py
+
 # --- Maintenance ---
 
 .PHONY: clean
