@@ -45,3 +45,9 @@ export interface ApiError {
   detail: string;
   status: number;
 }
+
+export interface Balance {
+  asset_symbol: string;
+  available: number;
+  locked: number;
+}

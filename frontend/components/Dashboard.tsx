@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useWebSocket } from '../hooks/useWebSocket';
+import { useAccountStore } from '../store/useAccountStore';
 import { useMarketStore } from '../store/useMarketStore';
 import { OrderBookSnapshot } from '../types';
 import { DepthChart } from './Dashboard/DepthChart';
@@ -29,6 +30,7 @@ export const Dashboard: React.FC = () => {
     totalVolume,
     updatePriceHistory,
   } = useMarketStore();
+  const { fetchBalances } = useAccountStore();
   const apiURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
   // Initial Data Fetch
@@ -44,8 +46,9 @@ export const Dashboard: React.FC = () => {
 
     if (token) {
       fetchInitialData();
+      fetchBalances();
     }
-  }, [token, setMarketData]);
+  }, [token, setMarketData, fetchBalances]);
 
   // Metrics & Price History Polling
   useEffect(() => {

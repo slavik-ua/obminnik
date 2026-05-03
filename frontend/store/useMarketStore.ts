@@ -40,10 +40,40 @@ export const useMarketStore = create<MarketState>((set, get) => ({
   priceHistory: [],
 
   setMarketData: (bids, asks) => {
-    const sortedBids = [...bids].sort((a, b) => b.price - a.price);
-    const sortedAsks = [...asks].sort((a, b) => a.price - b.price);
-    const newPrice = sortedBids[0]?.price || get().lastPrice;
+    const normalizedBids = (bids || [])
+      .map((b) => ({
+        price: Number(b.price || 0) / 1e8,
+        total_vol: Number(b.total_vol || 0) / 1e8,
+      }))
+      .filter((b) => b.price > 0);
+    const normalizedAsks = (asks || [])
+      .map((a) => ({
+        price: Number(a.price || 0) / 1e8,
+        total_vol: Number(a.total_vol || 0) / 1e8,
+      }))
+      .filter((a) => a.price > 0);
+
+    const sortedBids = [...normalizedBids].sort((a, b) => b.price - a.price);
+    const sortedAsks = [...normalizedAsks].sort((a, b) => a.price - b.price);
+
+    console.log('Store sorted bids:', sortedBids);
+    console.log('Store sorted asks:', sortedAsks);
+
+    const bestBid = sortedBids[0]?.price;
+    const bestAsk = sortedAsks[0]?.price;
+
+    // If we have both, mid price is a good fallback for "Market Price" if no trades happened yet
+    let newPrice = get().lastPrice;
+    if (bestBid && bestAsk) {
+      newPrice = (bestBid + bestAsk) / 2;
+    } else if (bestBid) {
+      newPrice = bestBid;
+    } else if (bestAsk) {
+      newPrice = bestAsk;
+    }
+
     const oldPrice = get().lastPrice;
+    console.log('Store new price:', newPrice, 'old price:', oldPrice);
 
     set({
       bids: sortedBids,
@@ -55,13 +85,24 @@ export const useMarketStore = create<MarketState>((set, get) => ({
 
   addTrades: (newTrades) =>
     set((state) => {
-      const tradesWithMeta = newTrades.map((t) => ({
-        ...t,
-        timestamp: t.timestamp || Date.now(),
-        side: t.side || 'buy',
-      }));
+      const tradesWithMeta = (newTrades || [])
+        .map((t) => ({
+          ...t,
+          price: Number(t.price || 0) / 1e8,
+          quantity: Number(t.quantity || 0) / 1e8,
+          timestamp: t.timestamp || Date.now(),
+          side: t.side || 'buy',
+        }))
+        .filter((t) => t.price > 0);
+
+      const latestTrade = tradesWithMeta[0];
+      const newPrice = latestTrade ? latestTrade.price : state.lastPrice;
+      const oldPrice = state.lastPrice;
+
       return {
         trades: [...tradesWithMeta, ...state.trades].slice(0, 50),
+        lastPrice: newPrice,
+        priceChange: newPrice > oldPrice ? 'up' : newPrice < oldPrice ? 'down' : 'neutral',
       };
     }),
 

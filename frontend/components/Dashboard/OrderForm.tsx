@@ -3,7 +3,9 @@ import { ShieldCheck, TrendingDown, TrendingUp, Zap } from 'lucide-react';
 import React, { useState } from 'react';
 
 import { api } from '../../api/client';
+import { useAccountStore } from '../../store/useAccountStore';
 import { OrderSide } from '../../types';
+import { useToast } from '../Toast';
 
 export const OrderForm: React.FC = () => {
   const [side, setSide] = useState<OrderSide>('buy');
@@ -11,6 +13,11 @@ export const OrderForm: React.FC = () => {
   const [quantity, setQuantity] = useState('');
   const [loading, setLoading] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
+
+  const { getBalance, fetchBalances } = useAccountStore();
+  const { addToast } = useToast();
+  const assetToCheck = side === 'buy' ? 'USD' : 'BTC';
+  const balance = getBalance(assetToCheck);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,15 +27,18 @@ export const OrderForm: React.FC = () => {
     setLastError(null);
     try {
       await api.post('/order', {
-        price: parseFloat(price),
-        quantity: parseFloat(quantity),
+        price: Math.round(parseFloat(price) * 1e8),
+        quantity: Math.round(parseFloat(quantity) * 1e8),
         side: side,
       });
       setPrice('');
       setQuantity('');
+      fetchBalances(); // Refresh balances after order
+      addToast(`Limit ${side.toUpperCase()} order placed at ${price}`, 'success');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'An error occurred';
       setLastError(message);
+      addToast(message, 'error');
     } finally {
       setLoading(false);
     }
@@ -110,6 +120,23 @@ export const OrderForm: React.FC = () => {
             value={quantity}
             onChange={(e) => setQuantity(e.target.value)}
           />
+        </div>
+
+        {/* Balance Display */}
+        <div className="bg-background/20 rounded-xl p-3 border border-border/50 space-y-2">
+          <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
+            <span>{assetToCheck} Balance</span>
+            <span className="text-foreground">
+              {((balance?.available || 0) / 1e8).toLocaleString()} {assetToCheck}
+            </span>
+          </div>
+          <div className="h-[1px] bg-border/20 w-full" />
+          <div className="flex justify-between items-center text-[9px] font-bold text-muted-foreground/40">
+            <span>Locked in Orders</span>
+            <span>
+              {((balance?.locked || 0) / 1e8).toLocaleString()} {assetToCheck}
+            </span>
+          </div>
         </div>
 
         {lastError && (

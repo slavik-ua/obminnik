@@ -28,10 +28,14 @@ export const useWebSocket = (token: string | null) => {
 
     socket.onmessage = (event) => {
       try {
+        console.log('WS Received Raw:', event.data);
         const message: WSMessage = JSON.parse(event.data);
+        console.log('WS Decoded:', message);
         if (message.type === 'ORDERBOOK_UPDATE') {
+          console.log('Updating Orderbook:', message.payload);
           setMarketData(message.payload.bids, message.payload.asks);
         } else if (message.type === 'TRADES_EXECUTED') {
+          console.log('Adding Trades:', message.payload);
           addTrades(message.payload);
         }
       } catch (err) {

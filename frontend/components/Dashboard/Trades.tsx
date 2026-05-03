@@ -37,36 +37,38 @@ export const Trades: React.FC<TradesProps> = ({ trades }) => {
               </p>
             </div>
           )}
-          {trades?.map((t, i) => {
-            if (!t) return null;
-            const timestamp = t.timestamp
-              ? new Date(t.timestamp).toLocaleTimeString([], {
-                  hour12: false,
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  second: '2-digit',
-                })
-              : '---';
+          {trades
+            ?.filter((t) => (t.price || 0) > 0)
+            .map((t, i) => {
+              if (!t) return null;
+              const timestamp = t.timestamp
+                ? new Date(t.timestamp).toLocaleTimeString([], {
+                    hour12: false,
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                  })
+                : '---';
 
-            return (
-              <div
-                key={`${t.id || i}-${i}`}
-                className="grid grid-cols-[1.5fr_1fr_1fr] gap-2 items-center py-2 px-4 border-b border-border/20 last:border-0 hover:bg-white/5 transition-colors group animate-in slide-in-from-top-1 duration-300"
-              >
-                <span
-                  className={`font-mono font-bold text-[11px] tabular-nums truncate ${t.side === 'buy' ? 'text-buy' : 'text-sell'}`}
+              return (
+                <div
+                  key={`${t.id || i}-${i}`}
+                  className="grid grid-cols-[1.5fr_1fr_1fr] gap-2 items-center py-2 px-4 border-b border-border/20 last:border-0 hover:bg-white/5 transition-colors group animate-in slide-in-from-top-1 duration-300"
                 >
-                  {(t.price || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                </span>
-                <span className="text-right text-foreground font-mono font-bold text-[11px] tabular-nums truncate">
-                  {(t.quantity || 0).toLocaleString(undefined, { minimumFractionDigits: 4 })}
-                </span>
-                <span className="text-right text-muted-foreground font-mono text-[9px] tabular-nums opacity-60 group-hover:opacity-100 transition-opacity">
-                  {timestamp}
-                </span>
-              </div>
-            );
-          })}
+                  <span
+                    className={`font-mono font-bold text-[11px] tabular-nums truncate ${t.side === 'buy' ? 'text-buy' : 'text-sell'}`}
+                  >
+                    {(t.price || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </span>
+                  <span className="text-right text-foreground font-mono font-bold text-[11px] tabular-nums truncate">
+                    {(t.quantity || 0).toLocaleString(undefined, { minimumFractionDigits: 4 })}
+                  </span>
+                  <span className="text-right text-muted-foreground font-mono text-[9px] tabular-nums opacity-60 group-hover:opacity-100 transition-opacity">
+                    {timestamp}
+                  </span>
+                </div>
+              );
+            })}
         </div>
       </div>
     </section>

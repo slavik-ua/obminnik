@@ -37,16 +37,22 @@ const OrderRow: React.FC<{ entry: OrderBookEntry; side: 'buy' | 'sell'; maxVol: 
         style={{ width: `${(entry.total_vol / maxVol) * 100}%`, backgroundColor: barColor }}
       />
       <span className={`${textColor} font-mono font-bold z-10 tabular-nums`}>
-        {entry.price.toLocaleString(undefined, {
+        {(entry.price || 0).toLocaleString(undefined, {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
         })}
       </span>
-      <span className="text-right text-foreground font-mono z-10 tabular-nums">
-        {entry.total_vol.toLocaleString()}
+      <span className="text-foreground/70 font-mono text-right z-10 tabular-nums">
+        {(entry.total_vol || 0).toLocaleString(undefined, {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 8,
+        })}
       </span>
-      <span className="text-right text-muted-foreground font-mono z-10 tabular-nums">
-        {(entry.price * entry.total_vol).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+      <span className="text-foreground/40 font-mono text-right z-10 tabular-nums hidden sm:inline">
+        {((entry.price || 0) * (entry.total_vol || 0)).toLocaleString(undefined, {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}
       </span>
     </div>
   );
@@ -91,6 +97,7 @@ export const OrderBook: React.FC<OrderBookProps> = ({ data }) => {
               </div>
             )}
             {data.asks
+              .filter((a) => a.price > 0)
               .slice()
               .reverse()
               .map((ask, i) => (
@@ -107,24 +114,10 @@ export const OrderBook: React.FC<OrderBookProps> = ({ data }) => {
               <span
                 className={`text-xl font-mono font-black tabular-nums transition-colors ${priceChange === 'up' ? 'text-buy' : priceChange === 'down' ? 'text-sell' : 'text-foreground'}`}
               >
-                {lastPrice > 0
-                  ? lastPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })
-                  : '---'}
-              </span>
-              {priceChange !== 'neutral' && (
-                <span
-                  className={`text-[10px] font-black ${priceChange === 'up' ? 'text-buy' : 'text-sell'}`}
-                >
-                  {priceChange === 'up' ? '▲' : '▼'}
-                </span>
-              )}
-            </div>
-            <div className="text-right z-10">
-              <span className="text-[10px] text-muted-foreground uppercase font-black tracking-tighter block leading-none">
-                Spread
+                {lastPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </span>
               <span className="text-xs text-foreground font-mono font-bold">
-                {data.asks.length && data.bids.length
+                {data.asks[0]?.price && data.bids[0]?.price
                   ? Math.abs(data.asks[0].price - data.bids[0].price).toLocaleString(undefined, {
                       minimumFractionDigits: 2,
                     })
@@ -140,9 +133,11 @@ export const OrderBook: React.FC<OrderBookProps> = ({ data }) => {
                 Awaiting Bids...
               </div>
             )}
-            {data.bids.map((bid, i) => (
-              <OrderRow key={`bid-${bid.price}-${i}`} entry={bid} side="buy" maxVol={maxVol} />
-            ))}
+            {data.bids
+              .filter((b) => b.price > 0)
+              .map((bid, i) => (
+                <OrderRow key={`bid-${bid.price}-${i}`} entry={bid} side="buy" maxVol={maxVol} />
+              ))}
           </div>
         </div>
       </div>
