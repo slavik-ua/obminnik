@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/joho/godotenv"
 	"github.com/pressly/goose/v3"
@@ -142,7 +143,17 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	pool, err := database.NewPostgresPool(ctx, cfg.DBURL)
+	var pool *pgxpool.Pool
+	var err error
+	for i := 0; i < 15; i++ {
+		pool, err = database.NewPostgresPool(ctx, cfg.DBURL)
+		if err == nil {
+			slog.Info("Connected to PostgreSQL")
+			break
+		}
+		slog.Warn("Waiting for PostgreSQL", "attempt", i+1, "error", err)
+		time.Sleep(2 * time.Second)
+	}
 	if err != nil {
 		return fmt.Errorf("postgres: %w", err)
 	}

@@ -125,8 +125,9 @@ func (r *PostgresOrderRepository) ListActiveBySide(ctx context.Context, side db.
 			ID:                row.ID,
 			UserID:            row.UserID,
 			Price:             row.Price,
-			CreatedAt:         row.CreatedAt.Time.UnixNano(),
+			Quantity:          row.Quantity,
 			RemainingQuantity: row.RemainingQuantity,
+			CreatedAt:         row.CreatedAt.Time.UnixNano(),
 			Side:              side,
 		}
 	}

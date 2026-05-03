@@ -12,7 +12,7 @@ WHERE id = $1 LIMIT 1;
 
 -- name: ListActiveOrdersBySide :many
 SELECT * FROM orders
-WHERE side = $1 and remaining_quantity > 0
+WHERE side = $1 AND remaining_quantity > 0 AND status IN ('PLACED', 'PARTIAL')
 ORDER BY
     CASE WHEN $1 = 'BUY' THEN price END DESC,
     CASE WHEN $1 = 'SELL' THEN price END ASC,

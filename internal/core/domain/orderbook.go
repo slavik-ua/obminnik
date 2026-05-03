@@ -147,8 +147,14 @@ func (ob *OrderBook) matchInternal(taker *Order, trades []Trade) []Trade {
 
 		level := levels[levelPrice]
 		maker := level.Head
+		matchedAtLevel := false
 
 		for maker != nil && taker.RemainingQuantity > 0 {
+			if taker.UserID == maker.UserID {
+				maker = maker.next
+				continue
+			}
+			matchedAtLevel = true
 			tradeQty := min(taker.RemainingQuantity, maker.RemainingQuantity)
 
 			taker.RemainingQuantity -= tradeQty
@@ -172,6 +178,10 @@ func (ob *OrderBook) matchInternal(taker *Order, trades []Trade) []Trade {
 				ob.removeOrderInternal(maker)
 			}
 			maker = next
+		}
+
+		if !matchedAtLevel {
+			break
 		}
 	}
 

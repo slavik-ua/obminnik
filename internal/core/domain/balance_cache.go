@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"fmt"
 	"github.com/google/uuid"
 	"math/big"
 )
@@ -22,6 +23,15 @@ func NewBalanceCache() *BalanceCache {
 	return &BalanceCache{
 		balances: make(map[uuid.UUID]map[string]*Balance),
 	}
+}
+
+func (b *BalanceCache) GetBalance(userID uuid.UUID, asset string) (*Balance, bool) {
+	userBalances, ok := b.balances[userID]
+	if !ok {
+		return nil, false
+	}
+	balance, ok := userBalances[asset]
+	return balance, ok
 }
 
 func (b *BalanceCache) InitBalance(userID uuid.UUID, asset string, available, locked int64) {
@@ -81,16 +91,32 @@ func (b *BalanceCache) SettleTrade(buyer, seller uuid.UUID, baseAsset, quoteAsse
 	quoteAmountBig.Quo(quoteAmountBig, d)
 	quoteAmount := quoteAmountBig.Int64()
 
-	// The Buyer is buying baseAsset (BTC) and must pay with the quote asset (USD). The engine checks if they have enough Locked USD to cover the price
-	buyerQuoteBalance, ok := b.balances[buyer][quoteAsset]
+	// The Buyer is buying baseAsset (BTC) and must pay with the quote asset (USD).
+	userBids, ok := b.balances[buyer]
+	if !ok {
+		return fmt.Errorf("%w: buyer %s not found in cache", ErrInsufficientFunds, buyer)
+	}
+	buyerQuoteBalance, ok := userBids[quoteAsset]
 	if !ok || buyerQuoteBalance.Locked < quoteAmount {
-		return ErrInsufficientFunds
+		locked := int64(0)
+		if ok {
+			locked = buyerQuoteBalance.Locked
+		}
+		return fmt.Errorf("%w: buyer %s insufficient %s locked (has %d, needs %d)", ErrInsufficientFunds, buyer, quoteAsset, locked, quoteAmount)
 	}
 
-	// The seller sells baseAsset (BTC). The engine is checking if they have enough Locked BTC
-	sellerBaseBalance, ok := b.balances[seller][baseAsset]
+	// The seller sells baseAsset (BTC).
+	userAsks, ok := b.balances[seller]
+	if !ok {
+		return fmt.Errorf("%w: seller %s not found in cache", ErrInsufficientFunds, seller)
+	}
+	sellerBaseBalance, ok := userAsks[baseAsset]
 	if !ok || sellerBaseBalance.Locked < size {
-		return ErrInsufficientFunds
+		locked := int64(0)
+		if ok {
+			locked = sellerBaseBalance.Locked
+		}
+		return fmt.Errorf("%w: seller %s insufficient %s locked (has %d, needs %d)", ErrInsufficientFunds, seller, baseAsset, locked, size)
 	}
 
 	buyerQuoteBalance.Locked -= quoteAmount

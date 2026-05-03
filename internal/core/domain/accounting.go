@@ -14,10 +14,10 @@ var (
 )
 
 type BalanceRecord struct {
-	UserID      uuid.UUID
-	AssetSymbol string
-	Available   int64
-	Locked      int64
+	UserID      uuid.UUID `json:"user_id"`
+	AssetSymbol string    `json:"asset_symbol"`
+	Available   int64     `json:"available"`
+	Locked      int64     `json:"locked"`
 }
 
 func ToFixedPoint(val int64) int64 {
