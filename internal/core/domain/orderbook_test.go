@@ -13,13 +13,13 @@ type MockGenerator struct {
 func (m *MockGenerator) Next() uuid.UUID { return m.FixedID }
 
 func TestOrderBook_Matching(t *testing.T) {
-	userID := uuid.New()
+	userA := uuid.New()
+	userB := uuid.New()
 
 	t.Run("Full match", func(t *testing.T) {
 		ob := NewOrderBook(&MockGenerator{})
-		ob.PlaceOrder(uuid.New(), userID, 100, 10, SideBuy, nil)
-
-		trades, status := ob.PlaceOrder(uuid.New(), userID, 100, 10, SideSell, nil)
+		ob.PlaceOrder(uuid.New(), userA, 100, 10, SideBuy, nil)
+		trades, status := ob.PlaceOrder(uuid.New(), userB, 100, 10, SideSell, nil)
 
 		if len(trades) != 1 {
 			t.Fatalf("expected 1 trade, got %d", len(trades))
@@ -38,9 +38,8 @@ func TestOrderBook_Matching(t *testing.T) {
 		ob := NewOrderBook(&MockGenerator{})
 		makerID := uuid.New()
 
-		ob.PlaceOrder(makerID, userID, 100, 10, SideBuy, nil)
-
-		trades, status := ob.PlaceOrder(uuid.New(), userID, 100, 5, SideSell, nil)
+		ob.PlaceOrder(makerID, userA, 100, 10, SideBuy, nil)
+		trades, status := ob.PlaceOrder(uuid.New(), userB, 100, 5, SideSell, nil)
 
 		if len(trades) != 1 {
 			t.Fatalf("expected 1 trade, got %d", len(trades))
@@ -60,9 +59,8 @@ func TestOrderBook_Matching(t *testing.T) {
 
 	t.Run("Patial Fill: Taker larger than Maker", func(t *testing.T) {
 		ob := NewOrderBook(&MockGenerator{})
-		ob.PlaceOrder(uuid.New(), userID, 100, 10, SideBuy, nil)
-
-		trades, status := ob.PlaceOrder(uuid.New(), userID, 100, 15, SideSell, nil)
+		ob.PlaceOrder(uuid.New(), userA, 100, 10, SideBuy, nil)
+		trades, status := ob.PlaceOrder(uuid.New(), userB, 100, 15, SideSell, nil)
 
 		if len(trades) != 1 {
 			t.Fatalf("expected 1 trade, got %d", len(trades))
@@ -77,8 +75,6 @@ func TestOrderBook_Matching(t *testing.T) {
 
 	t.Run("Price-Time Priority", func(t *testing.T) {
 		ob := NewOrderBook(&MockGenerator{})
-		userA := uuid.New()
-		userB := uuid.New()
 
 		idA := uuid.New()
 		idB := uuid.New()
@@ -86,7 +82,7 @@ func TestOrderBook_Matching(t *testing.T) {
 		ob.PlaceOrder(idA, userA, 100, 10, SideBuy, nil)
 		ob.PlaceOrder(idB, userB, 100, 10, SideBuy, nil)
 
-		trades, _ := ob.PlaceOrder(uuid.New(), userID, 100, 10, SideSell, nil)
+		trades, _ := ob.PlaceOrder(uuid.New(), uuid.New(), 100, 10, SideSell, nil)
 
 		if trades[0].MakerOrderID != idA {
 			t.Errorf("expected to match with first order %s, matched with %s", idA, trades[0].MakerOrderID)
@@ -101,10 +97,10 @@ func TestOrderBook_Matching(t *testing.T) {
 	t.Run("Multiple Price Levels", func(t *testing.T) {
 		ob := NewOrderBook(&MockGenerator{})
 
-		ob.PlaceOrder(uuid.New(), userID, 100, 10, SideBuy, nil)
-		ob.PlaceOrder(uuid.New(), userID, 90, 10, SideBuy, nil)
+		ob.PlaceOrder(uuid.New(), userA, 100, 10, SideBuy, nil)
+		ob.PlaceOrder(uuid.New(), userA, 90, 10, SideBuy, nil)
 
-		trades, status := ob.PlaceOrder(uuid.New(), userID, 90, 15, SideSell, nil)
+		trades, status := ob.PlaceOrder(uuid.New(), userB, 90, 15, SideSell, nil)
 
 		if len(trades) != 2 {
 			t.Fatalf("expected 2 trades, got %d", len(trades))
@@ -119,9 +115,9 @@ func TestOrderBook_Matching(t *testing.T) {
 
 	t.Run("No match (Price too high)", func(t *testing.T) {
 		ob := NewOrderBook(&MockGenerator{})
-		ob.PlaceOrder(uuid.New(), userID, 100, 10, SideBuy, nil)
+		ob.PlaceOrder(uuid.New(), userA, 100, 10, SideBuy, nil)
 
-		trades, status := ob.PlaceOrder(uuid.New(), userID, 101, 10, SideSell, nil)
+		trades, status := ob.PlaceOrder(uuid.New(), userB, 101, 10, SideSell, nil)
 
 		if len(trades) != 0 {
 			t.Error("orders should not have matched")
