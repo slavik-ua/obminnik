@@ -62,6 +62,7 @@ func (r *OutboxRelay) process(ctx context.Context) (int, error) {
 		if len(events) > 0 {
 			processedIDs := make([]uuid.UUID, 0, len(events))
 			for _, event := range events {
+				slog.Info("outbox relay: publishing event", "event_id", event.ID, "type", event.Type)
 				if err := r.publisher.Publish(ctx, event); err != nil {
 					slog.Error("outbox relay: publish failed", "event_id", event.ID, "error", err)
 					continue

@@ -21,7 +21,7 @@ const (
 	writeWait      = 10 * time.Second
 	pongWait       = 60 * time.Second
 	pingPeriod     = (pongWait) * 9 / 10
-	maxMessageSize = 512
+	maxMessageSize = 65536
 	clientBufSize  = 256
 )
 
@@ -80,6 +80,25 @@ func (c *Client) writePump() {
 	}
 }
 
+func (c *Client) readPump() {
+	defer func() {
+		c.hub.unregister <- c
+		c.conn.Close()
+	}()
+	c.conn.SetReadLimit(maxMessageSize)
+	_ = c.conn.SetReadDeadline(time.Now().Add(pongWait))
+	c.conn.SetPongHandler(func(string) error { _ = c.conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
+	for {
+		_, _, err := c.conn.ReadMessage()
+		if err != nil {
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				slog.Error("error", "err", err)
+			}
+			break
+		}
+	}
+}
+
 func (h *Hub) Broadcast(ctx context.Context, event ports.BroadcastEvent) error {
 	data, err := json.Marshal(event)
 	if err != nil {
@@ -110,6 +129,7 @@ func (h *Hub) Run(ctx context.Context) {
 		for msg := range ch {
 			var event ports.BroadcastEvent
 			if err := json.Unmarshal([]byte(msg.Payload), &event); err != nil {
+				slog.Error("hub: unmarshal failed", "error", err)
 				continue
 			}
 
@@ -117,8 +137,9 @@ func (h *Hub) Run(ctx context.Context) {
 				select {
 				case h.tradeChan <- []byte(msg.Payload):
 				default:
+					slog.Warn("hub: trade channel full")
 				}
-			} else {
+			} else if event.Type == "ORDERBOOK_UPDATE" {
 				h.obMu.Lock()
 				h.latestSnapshot = []byte(msg.Payload)
 				h.obMu.Unlock()
@@ -181,6 +202,6 @@ func (h *Hub) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.register <- client
-
 	go client.writePump()
+	go client.readPump()
 }

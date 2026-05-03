@@ -197,6 +197,10 @@ func (w *OrderWorker) handlePlaceOrder(ctx context.Context, payload []byte) {
 
 	if err != nil {
 		slog.Error("worker: memory lock failed", "err", err, "user", order.UserID, "asset", lockAsset, "amount", lockAmount)
+		// Update status to REJECTED in DB
+		_ = w.store.ExecTx(ctx, func(q *db.Queries) error {
+			return w.orderRepo.UpdateStatus(ctx, q, order.ID, domain.StatusRejected)
+		})
 		return
 	}
 
@@ -204,7 +208,12 @@ func (w *OrderWorker) handlePlaceOrder(ctx context.Context, payload []byte) {
 	w.mu.Lock()
 	trades, takerStatus := w.orderBook.PlaceOrder(order.ID, order.UserID, order.Price, order.Quantity, order.Side, w.tradesBuf)
 
+	var tradesToBroadcast []domain.Trade
 	if len(trades) > 0 {
+		// Copy trades to avoid race condition during async broadcast
+		tradesToBroadcast = make([]domain.Trade, len(trades))
+		copy(tradesToBroadcast, trades)
+
 		for _, trade := range trades {
 			var buyer, seller uuid.UUID
 			if order.Side == domain.SideBuy {
@@ -286,16 +295,16 @@ func (w *OrderWorker) handlePlaceOrder(ctx context.Context, payload []byte) {
 		return
 	}
 
-	if len(trades) > 0 {
+	if len(tradesToBroadcast) > 0 {
 		go func(t []domain.Trade) {
 			tradePayload, _ := json.Marshal(t)
 			_ = w.broadcaster.Broadcast(context.Background(), ports.BroadcastEvent{
 				Type:    "TRADES_EXECUTED",
 				Payload: tradePayload,
 			})
-		}(trades)
+		}(tradesToBroadcast)
 
-		w.metrics.RecordTrade(int64(len(trades)))
+		w.metrics.RecordTrade(int64(len(tradesToBroadcast)))
 	}
 
 	w.needsRefresh.Store(true)
@@ -383,6 +392,8 @@ func (w *OrderWorker) handleMessages(ctx context.Context, msg kafka.Message) {
 		}
 	}()
 
+	slog.Debug("Worker received message", "offset", msg.Offset, "key", string(msg.Key), "headers_count", len(msg.Headers))
+
 	var eventType string
 	for _, h := range msg.Headers {
 		if h.Key == "event_type" {
@@ -392,6 +403,7 @@ func (w *OrderWorker) handleMessages(ctx context.Context, msg kafka.Message) {
 	}
 
 	if eventType == "" {
+		slog.Warn("Worker received message with no event_type header", "offset", msg.Offset, "key", string(msg.Key))
 		return
 	}
 
@@ -426,13 +438,46 @@ func (w *OrderWorker) handleMessages(ctx context.Context, msg kafka.Message) {
 func (w *OrderWorker) hydrate(ctx context.Context) error {
 	slog.Info("worker: hydrating balance cache from database")
 
+	// 1. Load all balance records
 	records, err := w.accountRepo.ListAllBalances(ctx)
 	if err != nil {
 		return err
 	}
-
 	for _, r := range records {
 		w.balanceCache.InitBalance(r.UserID, r.AssetSymbol, r.Available, r.Locked)
+	}
+
+	// 2. Load all active orders to ensure their users are in the cache
+	// and accurately reflect required locked funds (Recovery Safety)
+	for _, side := range []db.OrderSide{db.OrderSideBUY, db.OrderSideSELL} {
+		orders, err := w.orderRepo.ListActiveBySide(ctx, side)
+		if err != nil {
+			return err
+		}
+		for _, o := range orders {
+			lockAsset := "BTC"
+			lockAmount := o.RemainingQuantity
+			if o.Side == domain.SideBuy {
+				lockAsset = "USD"
+				lockAmount = o.RemainingQuantity * o.Price / domain.Decimals
+			}
+
+			// Ensure user/asset exists in cache
+			for _, asset := range []string{"USD", "BTC"} {
+				if _, ok := w.balanceCache.GetBalance(o.UserID, asset); !ok {
+					w.balanceCache.InitBalance(o.UserID, asset, 0, 0)
+				}
+			}
+
+			// Add to locked funds if not already accounted for by DB hydrate
+			// This is a safety net for recovery inconsistencies
+			bal, _ := w.balanceCache.GetBalance(o.UserID, lockAsset)
+			if bal.Locked < lockAmount {
+				slog.Warn("worker: recovery found insufficient locked funds in DB, adjusting cache",
+					"user", o.UserID, "asset", lockAsset, "order_locked", lockAmount, "db_locked", bal.Locked)
+				bal.Locked = lockAmount
+			}
+		}
 	}
 
 	slog.Info("worker: hydration complete", "count", len(records))
